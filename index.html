@@ -179,6 +179,45 @@
             color: #38bdf8;
             margin-bottom: 2px;
         }
+
+        /* Load meter + status stay visible at the bottom of the scrolling panel */
+        .feedback {
+            position: sticky;
+            bottom: 0;
+            margin: 0 -16px -16px;
+            padding: 10px 16px 16px;
+            background-color: #131c2e;
+            border-top: 1px solid #1e293b;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .load-bar {
+            position: relative;
+            height: 6px;
+            margin-top: 4px;
+            background-color: #0b0f19;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .load-bar::after { /* 100% of callus capacity */
+            content: '';
+            position: absolute;
+            left: 66.667%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #64748b;
+        }
+
+        .load-fill {
+            height: 100%;
+            width: 0;
+            background-color: #38bdf8;
+            transition: width 0.15s ease;
+        }
     </style>
 </head>
 <body>
@@ -229,9 +268,15 @@
                 <div id="digitSliders"></div>
             </div>
 
-            <div class="status-box" id="statusBox" role="status" aria-live="polite">
-                <div class="status-title" id="statusTitle">Protected & Stable</div>
-                <div id="statusText">Posterior long arm splint securely immobilizing elbow and forearm.</div>
+            <div class="feedback">
+                <div id="loadMeter" role="meter" aria-label="Gravity load on the fracture as a percentage of callus capacity" aria-valuemin="0" aria-valuemax="150" aria-valuenow="0">
+                    <div class="label-row"><span>Gravity load vs. callus capacity</span><span id="loadPct">0%</span></div>
+                    <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
+                </div>
+                <div class="status-box" id="statusBox" role="status" aria-live="polite">
+                    <div class="status-title" id="statusTitle">Protected & Stable</div>
+                    <div id="statusText">Posterior long arm splint securely immobilizing elbow and forearm.</div>
+                </div>
             </div>
         </div>
     </div>
@@ -252,16 +297,21 @@
         const statusBox = document.getElementById('statusBox');
         const statusTitle = document.getElementById('statusTitle');
         const statusText = document.getElementById('statusText');
+        const loadFill = document.getElementById('loadFill');
+        const loadPct = document.getElementById('loadPct');
+        const loadMeter = document.getElementById('loadMeter');
 
+        // protect: fraction of the bending load the device carries when it fully spans the fracture (illustrative values).
+        // span: where the device sits along the forearm, in px from the elbow (also used to draw it).
         const SUPPORTS = {
-            posterior_long: { name: 'Posterior Long Arm Splint', note: 'Restricts elbow flexion/extension and forearm rotation to protect the fracture site.' },
-            sugar_tong:     { name: 'Sugar-Tong Splint',         note: 'Wraps the forearm and elbow to limit flexion and forearm rotation.' },
-            volar_short:    { name: 'Volar Short Arm Splint',    note: 'Immobilizes the wrist and distal forearm.' },
-            ulnar_gutter:   { name: 'Ulnar Gutter Splint',       note: 'Supports the ulnar side of the wrist and hand (ring and small fingers).' },
-            radial_gutter:  { name: 'Radial Gutter Splint',      note: 'Supports the radial side of the wrist and hand (thumb and index).' },
-            thumb_spica:    { name: 'Thumb Spica Splint',        note: 'Immobilizes the thumb and wrist.' },
-            sling:          { name: 'Arm Sling',                 note: 'Supports the arm at rest. Avoid lifting the arm or loading the fingers.' },
-            none:           { name: 'No Support',                note: '' }
+            posterior_long: { name: 'Posterior Long Arm Splint', protect: 0.97, span: [-10, 180], note: 'Restricts elbow flexion/extension and forearm rotation to protect the fracture site.' },
+            sugar_tong:     { name: 'Sugar-Tong Splint',         protect: 0.97, span: [-15, 190], note: 'Wraps the forearm and elbow to limit flexion and forearm rotation.' },
+            volar_short:    { name: 'Volar Short Arm Splint',    protect: 0.95, span: [55, 180],  note: 'Immobilizes the wrist and distal forearm.' },
+            ulnar_gutter:   { name: 'Ulnar Gutter Splint',       protect: 0.5,  span: [60, 180],  note: 'Supports the ulnar side of the wrist and hand (ring and small fingers).' },
+            radial_gutter:  { name: 'Radial Gutter Splint',      protect: 0.5,  span: [60, 180],  note: 'Supports the radial side of the wrist and hand (thumb and index).' },
+            thumb_spica:    { name: 'Thumb Spica Splint',        protect: 0.5,  span: [55, 180],  note: 'Immobilizes the thumb and wrist.' },
+            sling:          { name: 'Arm Sling',                 protect: 0.95, span: null,       note: 'Supports the arm at rest. Avoid lifting the arm or loading the fingers.' },
+            none:           { name: 'No Support',                protect: 0,    span: null,       note: '' }
         };
 
         // ---------------------------------------------------------------
@@ -332,8 +382,53 @@
             return s;
         }
 
+        // ---------------------------------------------------------------
+        // Gravity load model
+        // ---------------------------------------------------------------
+        // Bending moment at the fracture = weight of everything distal to it x its horizontal lever arm.
+        // Relative masses: forearm = 1, hand ~ 0.375 (roughly 0.6% vs 1.6% of body mass).
+        const HAND_MASS = 0.375;
+        const PROXIMAL_OVERLAP = 50; // px of splint needed above the fracture for it to carry full load
+
+        function distalMoment(fracY) {
+            const L = FOREARM_LEN - fracY;                  // distal forearm length
+            const forearm = (L / FOREARM_LEN) * (L / 2);    // its mass share x lever to its centre
+            const hand = HAND_MASS * (L + 44);              // hand centre sits ~44 px past the end of the shaft
+            return forearm + hand;
+        }
+        const REF_MOMENT = distalMoment(65); // mid-shaft fracture = 1.0
+
+        // Forearm angle from "hanging straight down", exactly as drawn (elbow flexion minus arm elevation).
+        function forearmAngle(s) {
+            return (Math.max(0, Math.min(140, s.elbowFlex)) - s.armLift) * Math.PI / 180;
+        }
+
+        // What the healing bone can carry, in units of "mid-shaft, forearm held horizontal".
+        // Anchored to the app's own phases: hematoma (day 0), soft callus (14), hard callus (35), remodeled (56).
+        const CAPACITY_POINTS = [[0, 0.1], [14, 0.3], [35, 1.25], [56, 3.0]];
+        function healingCapacity(day) {
+            const pts = CAPACITY_POINTS;
+            if (day >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
+            for (let i = 1; i < pts.length; i++) {
+                if (day <= pts[i][0]) {
+                    const [d0, c0] = pts[i - 1];
+                    const [d1, c1] = pts[i];
+                    return c0 + (c1 - c0) * (day - d0) / (d1 - d0);
+                }
+            }
+        }
+
+        // A device only protects if it actually reaches the fracture with enough lever above it.
+        function supportProtection(s) {
+            const sup = SUPPORTS[s.support];
+            let coverage = 1;
+            if (sup.span) coverage = Math.max(0, Math.min(1, (10 + s.fractureY - sup.span[0]) / PROXIMAL_OVERLAP));
+            return { protect: sup.protect * coverage, coverage };
+        }
+
+        // Movement rules: does the pose defeat what the device is meant to restrict?
         // Returns 'safe' | 'warning' | 'unsafe'
-        function evaluateSafety(s) {
+        function restrictionLevel(s) {
             const t = s.timeline;
             const total = Math.abs(s.thumb) + Math.abs(s.index) + Math.abs(s.middle) + Math.abs(s.ring) + Math.abs(s.pinky);
             const ulnar = Math.abs(s.ring) + Math.abs(s.pinky);
@@ -362,17 +457,35 @@
             return 'safe';
         }
 
-        const DISPLACEMENT = {
-            safe:    { x: 0,   y: 0,   ang: 0 },
-            warning: { x: 2.5, y: 1.8, ang: 0.02 },
-            unsafe:  { x: 6,   y: 4.5, ang: 0.06 }
-        };
+        const RANK = { safe: 0, warning: 1, unsafe: 2 };
 
-        // Fragment displacement fades to zero as the callus stiffens (day 35).
-        function displacement(level, timeline) {
-            const mult = 1 - Math.min(1, timeline / 35);
-            const d = DISPLACEMENT[level];
-            return { x: d.x * mult, y: d.y * mult, ang: d.ang * mult };
+        // Two independent checks, worst one wins: gravity load vs. callus capacity, and device restriction rules.
+        // Used by BOTH views.
+        function evaluateSafety(s) {
+            const t = s.timeline;
+            const load = distalMoment(s.fractureY) / REF_MOMENT * Math.abs(Math.sin(forearmAngle(s)));
+            const { protect, coverage } = supportProtection(s);
+            const capacity = healingCapacity(t);
+            const ratio = load * (1 - protect) / capacity;
+
+            const gravityLevel = ratio >= 1 ? 'unsafe' : ratio >= 0.6 ? 'warning' : 'safe';
+            const ruleLevel = restrictionLevel(s);
+            const gravityWins = RANK[gravityLevel] >= RANK[ruleLevel];
+            const level = gravityWins ? gravityLevel : ruleLevel;
+            const cause = level === 'safe' ? 'none' : gravityWins ? 'gravity' : 'restriction';
+
+            // Fragment displacement scales with severity; rule-based violations fade as the callus stiffens.
+            const fade = 1 - Math.min(1, t / 35);
+            const ruleSeverity = (ruleLevel === 'unsafe' ? 1.5 : ruleLevel === 'warning' ? 0.63 : 0) * fade;
+            const gravitySeverity = ratio >= 0.6 ? Math.min(1.5, ratio) : 0;
+
+            return { level, cause, ratio, load, capacity, protect, coverage, severity: Math.max(ruleSeverity, gravitySeverity) };
+        }
+
+        // Fragments sag the way gravity pulls, expressed in the forearm's local frame.
+        function displacement(res, s) {
+            const dir = Math.sin(forearmAngle(s)) >= 0 ? 1 : -1;
+            return { x: dir * 4 * res.severity, y: 3 * res.severity, ang: -dir * 0.04 * res.severity };
         }
 
         // ---------------------------------------------------------------
@@ -718,6 +831,12 @@
             ctx.lineWidth = 3;
         }
 
+        // Returns [y, w, h] for a device so drawing and the protection model share one span table.
+        function spanRect(type, w) {
+            const [y0, y1] = SUPPORTS[type].span;
+            return [y0, w, y1 - y0];
+        }
+
         // Drawn in the humerus frame, before the elbow transform.
         function renderUpperArmSupport(type, op, xray) {
             if (op <= 0 || type !== 'posterior_long') return;
@@ -735,7 +854,7 @@
                 // Forearm segment plus an elbow joint patch; the upper-arm segment is drawn separately.
                 posteriorLongStyle(op, xray);
                 ctx.beginPath();
-                ctx.roundRect(-22, -10, 44, 190, 12);
+                ctx.roundRect(-22, ...spanRect('posterior_long', 44), 12);
                 fillStroke();
                 ctx.beginPath();
                 ctx.arc(0, 0, 20, 0, Math.PI * 2);
@@ -745,35 +864,35 @@
                 ctx.strokeStyle = `rgba(192, 132, 252, ${Math.max(op, 0.5)})`;
                 ctx.lineWidth = 2.5;
                 ctx.beginPath();
-                ctx.roundRect(-28, -15, 56, 205, 12);
+                ctx.roundRect(-28, ...spanRect('sugar_tong', 56), 12);
                 fillStroke();
             } else if (type === 'volar_short') {
                 ctx.fillStyle = `rgba(245, 158, 11, ${op * 0.4})`;
                 ctx.strokeStyle = `rgba(252, 211, 77, ${Math.max(op, 0.5)})`;
                 ctx.lineWidth = 2.5;
                 ctx.beginPath();
-                ctx.roundRect(-24, 55, 48, 125, 10);
+                ctx.roundRect(-24, ...spanRect('volar_short', 48), 10);
                 fillStroke();
             } else if (type === 'ulnar_gutter') {
                 ctx.fillStyle = `rgba(239, 68, 68, ${op * 0.35})`;
                 ctx.strokeStyle = `rgba(252, 165, 165, ${Math.max(op, 0.5)})`;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.roundRect(-2, 60, 26, 120, 8);
+                ctx.roundRect(-2, ...spanRect('ulnar_gutter', 26), 8);
                 fillStroke();
             } else if (type === 'radial_gutter') {
                 ctx.fillStyle = `rgba(34, 197, 94, ${op * 0.35})`;
                 ctx.strokeStyle = `rgba(134, 239, 172, ${Math.max(op, 0.5)})`;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.roundRect(-24, 60, 26, 120, 8);
+                ctx.roundRect(-24, ...spanRect('radial_gutter', 26), 8);
                 fillStroke();
             } else if (type === 'thumb_spica') {
                 ctx.fillStyle = `rgba(236, 72, 153, ${op * 0.4})`;
                 ctx.strokeStyle = `rgba(244, 114, 182, ${Math.max(op, 0.5)})`;
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.roundRect(-28, 55, 34, 125, 10);
+                ctx.roundRect(-28, ...spanRect('thumb_spica', 34), 10);
                 fillStroke();
             } else if (type === 'sling') {
                 ctx.strokeStyle = `rgba(248, 250, 252, ${Math.max(op, 0.7)})`;
@@ -800,12 +919,39 @@
         // ---------------------------------------------------------------
         // Status panel + labels
         // ---------------------------------------------------------------
-        function updateStatus(s, level) {
+        function updateStatus(s, res) {
             const t = s.timeline;
             const sup = SUPPORTS[s.support];
+            const pct = Math.round(res.ratio * 100);
+            const reach = (sup.span && res.coverage < 1)
+                ? ` The ${sup.name} does not extend far enough above the fracture to carry the load.` : '';
             let color, title, text;
 
-            if (t >= 56) {
+            if (s.support === 'none' && t < 35) {
+                color = '#ef4444';
+                title = 'CRITICAL: Unsupported Unstable Fracture';
+                text = res.ratio >= 0.6
+                    ? `No immobilization device active! Gravity loads the fracture at ${pct}% of what the day-${t} callus can carry, on top of muscle pull.`
+                    : 'No immobilization device active! Gravity load is low in this pose, but muscle pull can still displace the fragments.';
+            } else if (res.level === 'unsafe') {
+                color = '#ef4444';
+                if (res.cause === 'gravity') {
+                    title = 'CRITICAL: Gravity Overloads the Fracture';
+                    text = `Holding the forearm this way loads the fracture at ${pct}% of what the day-${t} callus can carry.${reach}`;
+                } else {
+                    title = 'CRITICAL: Unsafe Movement Under Support';
+                    text = `Applied movement exceeds the immobilization threshold of the ${sup.name}!`;
+                }
+            } else if (res.level === 'warning') {
+                color = '#f59e0b';
+                if (res.cause === 'gravity') {
+                    title = 'WARNING: High Gravity Load on Fracture';
+                    text = `Gravity loads the fracture at ${pct}% of what the day-${t} callus can carry.${reach}`;
+                } else {
+                    title = 'WARNING: Moderate Joint Stress Risk';
+                    text = `Movement is near the boundary of the ${sup.name}'s restriction profile.`;
+                }
+            } else if (t >= 56) {
                 color = '#10b981';
                 title = 'Bone Union Achieved (Healed)';
                 text = `Day ${t}+: Fracture remodeling complete. Solid bony bridging established across radius and ulna.`;
@@ -817,18 +963,6 @@
                 color = '#38bdf8';
                 title = 'Soft Callus Formation Phase';
                 text = `Day ${t}: Fibrous cartilage callus bridging the fracture gap. Avoid excessive torsional stress.`;
-            } else if (s.support === 'none') {
-                color = '#ef4444';
-                title = 'CRITICAL: Unsupported Unstable Fracture';
-                text = 'No immobilization device active! Muscle contractions and gravity are causing acute fragment displacement.';
-            } else if (level === 'unsafe') {
-                color = '#ef4444';
-                title = 'CRITICAL: Unsafe Movement Under Support';
-                text = `Applied movement exceeds the immobilization threshold of the ${sup.name}!`;
-            } else if (level === 'warning') {
-                color = '#f59e0b';
-                title = 'WARNING: Moderate Joint Stress Risk';
-                text = `Movement is near the boundary of the ${sup.name}'s restriction profile.`;
             } else {
                 color = '#38bdf8';
                 title = `Protected & Stable in ${sup.name}`;
@@ -839,6 +973,14 @@
             statusTitle.style.color = color;
             statusTitle.textContent = title;
             statusText.textContent = text;
+        }
+
+        function updateMeter(res) {
+            const pct = Math.round(res.ratio * 100);
+            loadFill.style.width = `${Math.min(res.ratio, 1.5) / 1.5 * 100}%`;
+            loadFill.style.backgroundColor = res.ratio >= 1 ? '#ef4444' : res.ratio >= 0.6 ? '#f59e0b' : '#38bdf8';
+            loadPct.textContent = `${pct}%`;
+            loadMeter.setAttribute('aria-valuenow', String(pct));
         }
 
         function updateLabels(s) {
@@ -856,11 +998,12 @@
             const s = readState();
             updateLabels(s);
 
-            const level = evaluateSafety(s);
+            const res = evaluateSafety(s);
             const v = {
                 s,
-                level,
-                disp: displacement(level, s.timeline),
+                res,
+                level: res.level,
+                disp: displacement(res, s),
                 supOp: s.supportOp / 100,
                 musOp: s.xray ? 0.08 : s.muscleOp / 100
             };
@@ -876,7 +1019,8 @@
             else renderSideView(v);
             ctx.restore();
 
-            updateStatus(s, level);
+            updateStatus(s, res);
+            updateMeter(res);
             canvas.setAttribute('aria-label',
                 `${s.view === 'front' ? 'Anterior' : 'Lateral'} view of a forearm fracture, ` +
                 `${SUPPORTS[s.support].name.toLowerCase()}, ${timelineLabel(s.timeline)}`);
