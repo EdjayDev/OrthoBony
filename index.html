@@ -102,6 +102,22 @@
             .controls { max-height: none; }
         }
 
+        /* Keep the arm in view while dragging sliders below it (skipped on short landscape screens). */
+        @media (max-width: 700px) and (min-height: 620px) {
+            .viewer-pane {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+                background-color: #0b0f19;
+                padding-bottom: 6px;
+            }
+            canvas {
+                width: auto;
+                height: min(42vh, calc((100vw - 40px) * 0.8667));
+                margin: 0 auto;
+            }
+        }
+
         .control-section {
             border-top: 1px solid #1e293b;
             padding-top: 8px;
@@ -347,7 +363,7 @@
             globalSliders: [
                 { key: 'timeline',   label: 'Healing Timeline (Day 0 to Weeks)',       min: 0,   max: 70,  step: 1,    value: 0,  fmt: timelineLabel },
                 { key: 'fractureY',  label: 'Fracture Site (Radius/Ulna Level)',       min: 35,  max: 120, step: 1,    value: 65, fmt: fractureLabel },
-                { key: 'zoom',       label: 'Zoom Level',                              min: 0.6, max: 1.6, step: 0.05, value: 1,  fmt: v => v.toFixed(2) + 'x' },
+                { key: 'zoom',       label: 'Zoom (relative to auto-fit)',                              min: 0.6, max: 1.6, step: 0.05, value: 1,  fmt: v => v.toFixed(2) + 'x' },
                 { key: 'armLift',    label: 'Arm Elevation Angle',                     min: -30, max: 60,  step: 1,    value: 0,  fmt: deg },
                 { key: 'elbowFlex',  label: 'Elbow Flexion Angle (0°–140°)',           min: 0,   max: 140, step: 1,    value: 95, fmt: deg },
                 { key: 'rotation',   label: 'Forearm Rotation (Supination / Pronation)', min: -SUPINATION_MAX, max: PRONATION_MAX, step: 1, value: 0, fmt: rotationLabel },
@@ -659,16 +675,22 @@
             return Math.abs(val) > 10 && s.timeline < 35 ? '#ef4444' : boneFill(s.xray);
         }
 
-        function drawDigit(x, y, angleRad, len, width, color) {
+        // The outline keeps overlapping fingers readable when the hand is edge-on.
+        function drawDigit(x, y, angleRad, len, width, color, outline) {
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(angleRad);
-            ctx.strokeStyle = color;
-            ctx.lineWidth = width;
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(0, len);
+            if (outline) {
+                ctx.strokeStyle = outline;
+                ctx.lineWidth = width + 2;
+                ctx.stroke();
+            }
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
             ctx.stroke();
             ctx.restore();
         }
@@ -677,7 +699,28 @@
 
         // cos of the rotation measured from full supination: 1 supinated, ~0 neutral, -1 fully pronated.
         const pronationCos = s => Math.cos(toRad(s.rotation + SUPINATION_MAX));
+
+        // Frames the arm: works out where the shoulder, elbow and fingertips land for this pose and
+        // scales/centres the view so a flexed arm and a hanging arm both fill the canvas.
+        // Coordinates match the view code (shoulder at (-30,-50) front, (0,-50) side).
+        function fitView(s) {
+            const front = s.view === 'front';
+            const a = toRad(s.armLift);
+            const phi = toRad(Math.max(0, Math.min(140, s.elbowFlex)) - s.armLift);
+            const S = { x: front ? -30 : 0, y: -50 };
+            const E = { x: S.x + 125 * Math.sin(a), y: S.y + 125 * Math.cos(a) };
+            const T = { x: E.x - 217 * Math.sin(phi), y: E.y + 217 * Math.cos(phi) }; // fingertip
+            const pts = front
+                ? [S, E, T, { x: -100, y: -82 }, { x: 2, y: -29 }]   // clavicle and deltoid
+                : [S, E, T, { x: -26, y: -76 }, { x: 26, y: -26 }];  // shoulder ring
+            const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+            const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+            const PAD = 34; // room for splints and the sling strap
+            const scale = Math.max(0.7, Math.min(1.7, W / (x1 - x0 + 2 * PAD), H / (y1 - y0 + 2 * PAD)));
+            return { scale, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+        }
         const FINGERS = ['index', 'middle', 'ring', 'pinky'];
+        const FINGER_LEN = { index: 33, middle: 37, ring: 34, pinky: 28 };
 
         // ---------------------------------------------------------------
         // Front (anterior) view
@@ -756,27 +799,32 @@
             ctx.lineWidth = xray ? 2 : 1.5;
             ctx.beginPath();
             // The hand is broadest when palm or back faces the viewer, and edge-on near neutral.
-            const handW = 18 + 18 * Math.abs(cosP);
+            const handW = 22 + 14 * Math.abs(cosP);
             ctx.roundRect(-handW / 2, 0, handW, 24, 8);
             fillStroke();
 
             // Thumb follows the radius: lateral when supinated, medial when pronated.
             const flip = cosP >= 0 ? 1 : -1;
-            const thumbLen = 22 * (0.35 + 0.65 * Math.abs(cosP));
+            const thumbLen = 22 * (0.5 + 0.5 * Math.abs(cosP));
             ctx.save();
             ctx.translate(-18 * cosP, 12);
             ctx.rotate(flip * (-0.5 - toRad(s.thumb)));
-            ctx.strokeStyle = boneFill(xray);
-            ctx.lineWidth = 5;
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(0, 0);
             ctx.lineTo(-thumbLen * flip, 12);
+            ctx.strokeStyle = boneStroke(xray);
+            ctx.lineWidth = 7;
+            ctx.stroke();
+            ctx.strokeStyle = boneFill(xray);
+            ctx.lineWidth = 5;
             ctx.stroke();
             ctx.restore();
 
             FINGERS.forEach((name, idx) => {
-                drawDigit((-12 + idx * 8) * cosP, 24, flip * toRad(s[name]), 34, 4.5, fingerColor(s[name], s));
+                // Slight fan keeps the fingers separable near neutral, where they would otherwise stack exactly.
+                const fx = (-12 + idx * 8) * cosP + (idx - 1.5) * 3.5 * (1 - Math.abs(cosP));
+                drawDigit(fx, 24, flip * toRad(s[name]), FINGER_LEN[name], 4.5, fingerColor(s[name], s), boneStroke(xray));
             });
 
             ctx.restore(); // wrist/hand
@@ -853,9 +901,9 @@
             ctx.roundRect(-handW / 2, 0, handW, 26, 6);
             fillStroke();
 
-            drawDigit(10 * cosT, 8, -(0.5 + toRad(s.thumb)), 20, 5, boneFill(xray));
+            drawDigit(10 * cosT, 8, -(0.5 + toRad(s.thumb)), 20, 5, boneFill(xray), boneStroke(xray));
             FINGERS.forEach((name, idx) => {
-                drawDigit((1.5 - idx) * 4 * cosT, 26, toRad(s[name]), 34, 4, fingerColor(s[name], s));
+                drawDigit((1.5 - idx) * (4 * cosT + 1.5), 26, toRad(s[name]), FINGER_LEN[name], 4, fingerColor(s[name], s), boneStroke(xray));
             });
 
             ctx.restore(); // wrist/hand
@@ -1061,9 +1109,11 @@
             ctx.clearRect(0, 0, W, H);
             canvas.style.backgroundColor = s.xray ? '#020617' : '#131c2e';
 
+            const cam = fitView(s);
             ctx.save();
-            ctx.translate(W / 2, H / 2 - 10);
-            ctx.scale(s.zoom, s.zoom);
+            ctx.translate(W / 2, H / 2);
+            ctx.scale(cam.scale * s.zoom, cam.scale * s.zoom);
+            ctx.translate(-cam.cx, -(cam.cy - 60)); // the view code shifts everything up by 60 itself
             if (s.view === 'front') renderFrontView(v);
             else renderSideView(v);
             ctx.restore();
