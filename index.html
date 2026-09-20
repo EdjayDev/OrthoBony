@@ -301,17 +301,18 @@
         const loadPct = document.getElementById('loadPct');
         const loadMeter = document.getElementById('loadMeter');
 
+        // locksRotation: true if the device crosses the elbow and holds pronation/supination still.
         // protect: fraction of the bending load the device carries when it fully spans the fracture (illustrative values).
         // span: where the device sits along the forearm, in px from the elbow (also used to draw it).
         const SUPPORTS = {
-            posterior_long: { name: 'Posterior Long Arm Splint', protect: 0.97, span: [-10, 180], note: 'Restricts elbow flexion/extension and forearm rotation to protect the fracture site.' },
-            sugar_tong:     { name: 'Sugar-Tong Splint',         protect: 0.97, span: [-15, 190], note: 'Wraps the forearm and elbow to limit flexion and forearm rotation.' },
-            volar_short:    { name: 'Volar Short Arm Splint',    protect: 0.95, span: [55, 180],  note: 'Immobilizes the wrist and distal forearm.' },
-            ulnar_gutter:   { name: 'Ulnar Gutter Splint',       protect: 0.5,  span: [60, 180],  note: 'Supports the ulnar side of the wrist and hand (ring and small fingers).' },
-            radial_gutter:  { name: 'Radial Gutter Splint',      protect: 0.5,  span: [60, 180],  note: 'Supports the radial side of the wrist and hand (thumb and index).' },
-            thumb_spica:    { name: 'Thumb Spica Splint',        protect: 0.5,  span: [55, 180],  note: 'Immobilizes the thumb and wrist.' },
-            sling:          { name: 'Arm Sling',                 protect: 0.95, span: null,       note: 'Supports the arm at rest. Avoid lifting the arm or loading the fingers.' },
-            none:           { name: 'No Support',                protect: 0,    span: null,       note: '' }
+            posterior_long: { name: 'Posterior Long Arm Splint', locksRotation: true, protect: 0.97, span: [-10, 180], note: 'Restricts elbow flexion/extension and forearm rotation to protect the fracture site.' },
+            sugar_tong:     { name: 'Sugar-Tong Splint',         locksRotation: true, protect: 0.97, span: [-15, 190], note: 'Wraps the forearm and elbow to limit flexion and forearm rotation.' },
+            volar_short:    { name: 'Volar Short Arm Splint',    locksRotation: false, protect: 0.95, span: [55, 180],  note: 'Immobilizes the wrist and distal forearm. Forearm rotation stays free.' },
+            ulnar_gutter:   { name: 'Ulnar Gutter Splint',       locksRotation: false, protect: 0.5,  span: [60, 180],  note: 'Supports the ulnar side of the wrist and hand (ring and small fingers).' },
+            radial_gutter:  { name: 'Radial Gutter Splint',      locksRotation: false, protect: 0.5,  span: [60, 180],  note: 'Supports the radial side of the wrist and hand (thumb and index).' },
+            thumb_spica:    { name: 'Thumb Spica Splint',        locksRotation: false, protect: 0.5,  span: [55, 180],  note: 'Immobilizes the thumb and wrist.' },
+            sling:          { name: 'Arm Sling',                 locksRotation: false, protect: 0.95, span: null,       note: 'Supports the arm at rest. Avoid lifting the arm or loading the fingers.' },
+            none:           { name: 'No Support',                locksRotation: false, protect: 0,    span: null,       note: '' }
         };
 
         // ---------------------------------------------------------------
@@ -332,6 +333,13 @@
                  : 'Distal Third (1/3)';
         }
 
+        // Forearm rotation, measured from neutral (thumb up): negative = supination, positive = pronation.
+        const SUPINATION_MAX = 85, PRONATION_MAX = 80;
+        function rotationLabel(v) {
+            if (v === 0) return 'Neutral (thumb up)';
+            return v < 0 ? `${-v}° Supination` : `${v}° Pronation`;
+        }
+
         const deg = v => `${v}°`;
         const pct = v => `${v}%`;
 
@@ -342,6 +350,7 @@
                 { key: 'zoom',       label: 'Zoom Level',                              min: 0.6, max: 1.6, step: 0.05, value: 1,  fmt: v => v.toFixed(2) + 'x' },
                 { key: 'armLift',    label: 'Arm Elevation Angle',                     min: -30, max: 60,  step: 1,    value: 0,  fmt: deg },
                 { key: 'elbowFlex',  label: 'Elbow Flexion Angle (0°–140°)',           min: 0,   max: 140, step: 1,    value: 95, fmt: deg },
+                { key: 'rotation',   label: 'Forearm Rotation (Supination / Pronation)', min: -SUPINATION_MAX, max: PRONATION_MAX, step: 1, value: 0, fmt: rotationLabel },
                 { key: 'supportOp',  label: 'Support Transparency',                    min: 0,   max: 100, step: 1,    value: 85, fmt: pct },
                 { key: 'muscleOp',   label: 'Muscle Transparency',                     min: 10,  max: 100, step: 1,    value: 40, fmt: pct }
             ],
@@ -426,9 +435,11 @@
             return { protect: sup.protect * coverage, coverage };
         }
 
+        const RANK = { safe: 0, warning: 1, unsafe: 2 };
+
         // Movement rules: does the pose defeat what the device is meant to restrict?
         // Returns 'safe' | 'warning' | 'unsafe'
-        function restrictionLevel(s) {
+        function movementRule(s) {
             const t = s.timeline;
             const total = Math.abs(s.thumb) + Math.abs(s.index) + Math.abs(s.middle) + Math.abs(s.ring) + Math.abs(s.pinky);
             const ulnar = Math.abs(s.ring) + Math.abs(s.pinky);
@@ -457,7 +468,20 @@
             return 'safe';
         }
 
-        const RANK = { safe: 0, warning: 1, unsafe: 2 };
+        // Forearm rotation twists the fracture. Only devices that cross the elbow hold it still.
+        function rotationRule(s) {
+            const r = Math.abs(s.rotation);
+            const t = s.timeline;
+            if (s.support === 'none' || t >= 28) return 'safe'; // 'none' is already flagged by the movement rules
+            if (SUPPORTS[s.support].locksRotation) return r > 20 ? 'warning' : 'safe';
+            return r > 60 ? 'unsafe' : r > 30 ? 'warning' : 'safe';
+        }
+
+        function restriction(s) {
+            const move = movementRule(s);
+            const rot = rotationRule(s);
+            return RANK[rot] > RANK[move] ? { level: rot, reason: 'rotation' } : { level: move, reason: 'movement' };
+        }
 
         // Two independent checks, worst one wins: gravity load vs. callus capacity, and device restriction rules.
         // Used by BOTH views.
@@ -469,7 +493,8 @@
             const ratio = load * (1 - protect) / capacity;
 
             const gravityLevel = ratio >= 1 ? 'unsafe' : ratio >= 0.6 ? 'warning' : 'safe';
-            const ruleLevel = restrictionLevel(s);
+            const rule = restriction(s);
+            const ruleLevel = rule.level;
             const gravityWins = RANK[gravityLevel] >= RANK[ruleLevel];
             const level = gravityWins ? gravityLevel : ruleLevel;
             const cause = level === 'safe' ? 'none' : gravityWins ? 'gravity' : 'restriction';
@@ -479,7 +504,7 @@
             const ruleSeverity = (ruleLevel === 'unsafe' ? 1.5 : ruleLevel === 'warning' ? 0.63 : 0) * fade;
             const gravitySeverity = ratio >= 0.6 ? Math.min(1.5, ratio) : 0;
 
-            return { level, cause, ratio, load, capacity, protect, coverage, severity: Math.max(ruleSeverity, gravitySeverity) };
+            return { level, cause, reason: rule.reason, ratio, load, capacity, protect, coverage, severity: Math.max(ruleSeverity, gravitySeverity) };
         }
 
         // Fragments sag the way gravity pulls, expressed in the forearm's local frame.
@@ -580,10 +605,11 @@
             ctx.closePath();
         }
 
-        function drawBone(pathFn, arg, x, y, rot, xray) {
+        function drawBone(pathFn, arg, x, y, rot, xray, shear = 0) {
             ctx.save();
             ctx.translate(x, y);
             ctx.rotate(rot);
+            ctx.transform(1, 0, shear, 1, 0, 0); // slant the shaft: x shifts by shear * y
             ctx.scale(-1, 1);
             setBoneStyle(xray);
             ctx.beginPath();
@@ -648,6 +674,9 @@
         }
 
         const toRad = d => d * Math.PI / 180;
+
+        // cos of the rotation measured from full supination: 1 supinated, ~0 neutral, -1 fully pronated.
+        const pronationCos = s => Math.cos(toRad(s.rotation + SUPINATION_MAX));
         const FINGERS = ['index', 'middle', 'ring', 'pinky'];
 
         // ---------------------------------------------------------------
@@ -699,17 +728,22 @@
 
             drawMuscle(0, 65, 20, 55, 0, v); // forearm muscle group
 
-            // Anterior view of the right arm: radius is lateral (thumb side, viewer's left), ulna medial.
+            // Anterior view of the right arm. Fully supinated: radius lateral (thumb side, viewer's left), ulna medial.
+            // As the forearm pronates the distal ends swap sides, so the bones cross (cosP: 1 -> 0 -> -1).
+            const cosP = pronationCos(s);
             const RADIUS_X = -14, ULNA_X = 14;
+            const kR = 14 * (1 - cosP) / FOREARM_LEN;   // radius drifts medially toward the wrist
+            const kU = -14 * (1 - cosP) / FOREARM_LEN;  // ulna drifts laterally toward the wrist
             const lowerY = 10 + fracDist + 12;
 
-            drawBone(pathRadiusUpper, fracDist, RADIUS_X, 10, 0, xray);
-            drawUnion(RADIUS_X, fracDist, v, { callusRx: 14 });
-            drawBone(pathRadiusLower, lowerDist, RADIUS_X + disp.x, lowerY + disp.y, disp.ang, xray);
+            drawBone(pathUlnaUpper, fracDist, ULNA_X, 10, 0, xray, kU);
+            drawUnion(ULNA_X + kU * fracDist, fracDist, v);
+            drawBone(pathUlnaLower, lowerDist, ULNA_X + kU * (fracDist + 12) + disp.x * 0.9, lowerY + disp.y * 0.95, disp.ang * 0.85, xray, kU);
 
-            drawBone(pathUlnaUpper, fracDist, ULNA_X, 10, 0, xray);
-            drawUnion(ULNA_X, fracDist, v);
-            drawBone(pathUlnaLower, lowerDist, ULNA_X + disp.x * 0.9, lowerY + disp.y * 0.95, disp.ang * 0.85, xray);
+            // Radius is anterior to the ulna when crossed, so it draws on top.
+            drawBone(pathRadiusUpper, fracDist, RADIUS_X, 10, 0, xray, kR);
+            drawUnion(RADIUS_X + kR * fracDist, fracDist, v, { callusRx: 14 });
+            drawBone(pathRadiusLower, lowerDist, RADIUS_X + kR * (fracDist + 12) + disp.x, lowerY + disp.y, disp.ang, xray, kR);
 
             renderSupportDevice(s.support, supOp, xray);
 
@@ -721,24 +755,28 @@
             ctx.strokeStyle = boneStroke(xray);
             ctx.lineWidth = xray ? 2 : 1.5;
             ctx.beginPath();
-            ctx.roundRect(-18, 0, 36, 24, 8);
+            // The hand is broadest when palm or back faces the viewer, and edge-on near neutral.
+            const handW = 18 + 18 * Math.abs(cosP);
+            ctx.roundRect(-handW / 2, 0, handW, 24, 8);
             fillStroke();
 
-            // Thumb (radial side)
+            // Thumb follows the radius: lateral when supinated, medial when pronated.
+            const flip = cosP >= 0 ? 1 : -1;
+            const thumbLen = 22 * (0.35 + 0.65 * Math.abs(cosP));
             ctx.save();
-            ctx.translate(-18, 12);
-            ctx.rotate(-0.5 - toRad(s.thumb));
+            ctx.translate(-18 * cosP, 12);
+            ctx.rotate(flip * (-0.5 - toRad(s.thumb)));
             ctx.strokeStyle = boneFill(xray);
             ctx.lineWidth = 5;
             ctx.lineCap = 'round';
             ctx.beginPath();
             ctx.moveTo(0, 0);
-            ctx.lineTo(-22, 12);
+            ctx.lineTo(-thumbLen * flip, 12);
             ctx.stroke();
             ctx.restore();
 
             FINGERS.forEach((name, idx) => {
-                drawDigit(-12 + idx * 8, 24, toRad(s[name]), 34, 4.5, fingerColor(s[name], s));
+                drawDigit((-12 + idx * 8) * cosP, 24, flip * toRad(s[name]), 34, 4.5, fingerColor(s[name], s));
             });
 
             ctx.restore(); // wrist/hand
@@ -808,13 +846,16 @@
             ctx.strokeStyle = boneStroke(xray);
             ctx.lineWidth = xray ? 2 : 1.5;
             ctx.beginPath();
-            ctx.roundRect(-12, 0, 24, 26, 6);
+            // Thumb up (neutral) shows the hand's full width. Rotating either way turns it toward edge-on,
+            // stacking the thumb and fingers behind one another.
+            const cosT = Math.cos(toRad(s.rotation));
+            const handW = 12 + 12 * cosT;
+            ctx.roundRect(-handW / 2, 0, handW, 26, 6);
             fillStroke();
 
-            // Thumb points anteriorly; fingers overlap because they line up in this view.
-            drawDigit(10, 8, -(0.5 + toRad(s.thumb)), 20, 5, boneFill(xray));
+            drawDigit(10 * cosT, 8, -(0.5 + toRad(s.thumb)), 20, 5, boneFill(xray));
             FINGERS.forEach((name, idx) => {
-                drawDigit(-6 + idx * 4, 26, toRad(s[name]), 34, 4, fingerColor(s[name], s));
+                drawDigit((1.5 - idx) * 4 * cosT, 26, toRad(s[name]), 34, 4, fingerColor(s[name], s));
             });
 
             ctx.restore(); // wrist/hand
@@ -938,6 +979,9 @@
                 if (res.cause === 'gravity') {
                     title = 'CRITICAL: Gravity Overloads the Fracture';
                     text = `Holding the forearm this way loads the fracture at ${pct}% of what the day-${t} callus can carry.${reach}`;
+                } else if (res.reason === 'rotation') {
+                    title = 'CRITICAL: Rotation Twists the Fracture';
+                    text = `The ${sup.name} does not control forearm rotation, so pronation/supination twists the fracture.`;
                 } else {
                     title = 'CRITICAL: Unsafe Movement Under Support';
                     text = `Applied movement exceeds the immobilization threshold of the ${sup.name}!`;
@@ -947,6 +991,11 @@
                 if (res.cause === 'gravity') {
                     title = 'WARNING: High Gravity Load on Fracture';
                     text = `Gravity loads the fracture at ${pct}% of what the day-${t} callus can carry.${reach}`;
+                } else if (res.reason === 'rotation') {
+                    title = 'WARNING: Rotational Stress on Fracture';
+                    text = sup.locksRotation
+                        ? `Forearm rotation is pushing against the ${sup.name}, which is meant to hold it still.`
+                        : `The ${sup.name} does not control forearm rotation, so pronation/supination twists the fracture.`;
                 } else {
                     title = 'WARNING: Moderate Joint Stress Risk';
                     text = `Movement is near the boundary of the ${sup.name}'s restriction profile.`;
