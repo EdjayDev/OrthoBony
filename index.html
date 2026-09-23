@@ -214,30 +214,13 @@
           position: sticky;
           top: 0;
           z-index: 10;
-          background-color: #0b0f19;
+          background-color: var(--bg);
           padding-bottom: 6px;
         }
-
-        /* Keep the arm in view while dragging sliders below it (skipped on short landscape screens). */
-        @media (max-width: 700px) and (min-height: 620px) {
-          .viewer-pane {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            background-color: #0b0f19;
-            padding-bottom: 6px;
-          }
-          canvas {
-            width: auto;
-            height: min(42vh, calc((100vw - 40px) * 0.8667));
-            margin: 0 auto;
-          }
-        }
-
-        .control-section {
-          border-top: 1px solid #1e293b;
-          padding-top: 8px;
-          margin-top: 4px;
+        canvas {
+          width: auto;
+          height: min(42vh, calc((100vw - 40px) * 0.8667));
+          margin: 0 auto;
         }
       }
 
@@ -1040,8 +1023,23 @@
       const boneFill = (xray) => (xray ? "#f8fafc" : "#f1f5f9");
       const boneStroke = (xray) => (xray ? "#93c5fd" : "#94a3b8");
 
+      // Top-lit fill: lighter at the top of the bone shaft, deeper toward the joint.
+      function boneGradient(xray) {
+        const g = ctx.createLinearGradient(0, -12, 0, 128);
+        if (xray) {
+          g.addColorStop(0, "#ffffff");
+          g.addColorStop(0.55, "#e2e8f0");
+          g.addColorStop(1, "#9db4cd");
+        } else {
+          g.addColorStop(0, "#ffffff");
+          g.addColorStop(0.6, "#e6ecf5");
+          g.addColorStop(1, "#bfcad9");
+        }
+        return g;
+      }
+
       function setBoneStyle(xray) {
-        ctx.fillStyle = boneFill(xray);
+        ctx.fillStyle = boneGradient(xray);
         ctx.strokeStyle = boneStroke(xray);
         ctx.lineWidth = xray ? 2 : 1.5;
       }
@@ -1051,13 +1049,29 @@
         ctx.stroke();
       }
 
+      // Radial shading with the highlight offset up-left, as if lit from above.
       function drawMuscle(cx, cy, rx, ry, rot, v) {
-        ctx.fillStyle = v.s.xray
-          ? `rgba(15, 23, 42, ${v.musOp})`
-          : `rgba(225, 29, 72, ${v.musOp})`;
+        const op = v.musOp;
+        const g = ctx.createRadialGradient(
+          cx - rx * 0.35,
+          cy - ry * 0.45,
+          rx * 0.15,
+          cx,
+          cy,
+          Math.max(rx, ry) * 1.25,
+        );
+        if (v.s.xray) {
+          g.addColorStop(0, `rgba(41, 54, 74, ${op})`);
+          g.addColorStop(1, `rgba(8, 13, 22, ${op})`);
+        } else {
+          g.addColorStop(0, `rgba(251, 113, 133, ${op})`);
+          g.addColorStop(0.55, `rgba(225, 29, 72, ${op})`);
+          g.addColorStop(1, `rgba(124, 17, 49, ${op})`);
+        }
+        ctx.fillStyle = g;
         ctx.strokeStyle = v.s.xray
-          ? `rgba(51, 65, 85, ${v.musOp})`
-          : `rgba(159, 18, 57, ${v.musOp})`;
+          ? `rgba(51, 65, 85, ${op})`
+          : `rgba(159, 18, 57, ${op})`;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.ellipse(cx, cy, rx, ry, rot, 0, Math.PI * 2);
@@ -1166,10 +1180,20 @@
           ctx.ellipse(cx, y + 5, opts.callusRx || 13, 9, 0, 0, Math.PI * 2);
           ctx.fill();
         } else {
+          // Acute fracture gap; glow scale follows the severity so an overloaded gap reads first.
+          if (level === "unsafe") {
+            ctx.shadowColor = "rgba(239, 68, 68, 0.85)";
+            ctx.shadowBlur = 18;
+          } else if (level === "warning") {
+            ctx.shadowColor = "rgba(245, 158, 11, 0.75)";
+            ctx.shadowBlur = 13;
+          }
           ctx.fillStyle = fractureGapColor(s, level);
           ctx.beginPath();
           ctx.roundRect(cx - 8, y, 16, 12, 3);
           ctx.fill();
+          ctx.shadowColor = "transparent";
+          ctx.shadowBlur = 0;
           if (opts.strokeGap) {
             setBoneStyle(s.xray);
             ctx.stroke();
@@ -1341,15 +1365,17 @@
         fillStroke();
 
         // Thumb follows the radius: lateral when supinated, medial when pronated.
+        // It projects outward ("thumbs up") from the radial corner near the wrist;
+        // flexion sweeps the shaft across toward the palm.
         const flip = cosP >= 0 ? 1 : -1;
         const thumbLen = 22 * (0.5 + 0.5 * Math.abs(cosP));
         ctx.save();
-        ctx.translate(-18 * cosP, 12);
-        ctx.rotate(flip * (-0.5 - toRad(s.thumb)));
+        ctx.translate(-flip * (handW / 2 - 6), 4);
+        ctx.rotate(flip * (0.35 - toRad(s.thumb)));
         ctx.lineCap = "round";
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(-thumbLen * flip, 12);
+        ctx.moveTo(-flip * 2, 0);
+        ctx.lineTo(-flip * (2 + thumbLen), 0);
         ctx.strokeStyle = boneStroke(xray);
         ctx.lineWidth = 7;
         ctx.stroke();
@@ -1494,14 +1520,26 @@
       function renderUpperArmSupport(type, op, xray) {
         if (op <= 0 || type !== "posterior_long") return;
         posteriorLongStyle(op, xray);
+        // Soft drop shadow lifts the device off the limb behind it.
+        ctx.shadowColor = "rgba(2, 6, 23, 0.55)";
+        ctx.shadowOffsetY = 3;
+        ctx.shadowBlur = 10;
         ctx.beginPath();
         ctx.roundRect(-22, 35, 44, 95, 12);
         fillStroke();
+        ctx.shadowColor = "transparent";
+        ctx.shadowOffsetY = 0;
+        ctx.shadowBlur = 0;
       }
 
       // Drawn in the forearm frame, after the elbow transform.
       function renderSupportDevice(type, op, xray) {
         if (op <= 0 || type === "none") return;
+
+        // Soft drop shadow lifts the device off the limb beneath it (reset at the end).
+        ctx.shadowColor = "rgba(2, 6, 23, 0.55)";
+        ctx.shadowOffsetY = 3;
+        ctx.shadowBlur = 10;
 
         if (type === "posterior_long") {
           // Forearm segment plus an elbow joint patch; the upper-arm segment is drawn separately.
@@ -1569,6 +1607,10 @@
           ctx.closePath();
           fillStroke();
         }
+
+        ctx.shadowColor = "transparent";
+        ctx.shadowOffsetY = 0;
+        ctx.shadowBlur = 0;
       }
 
       // ---------------------------------------------------------------
@@ -1635,8 +1677,7 @@
           text = sup.note;
         }
 
-        statusBox.style.borderLeftColor = color;
-        statusTitle.style.color = color;
+        statusBox.style.setProperty("--state", color);
         statusTitle.textContent = title;
         statusText.textContent = text;
       }
@@ -1644,21 +1685,59 @@
       function updateMeter(res) {
         const pct = Math.round(res.ratio * 100);
         loadFill.style.width = `${(Math.min(res.ratio, 1.5) / 1.5) * 100}%`;
-        loadFill.style.backgroundColor =
-          res.ratio >= 1 ? "#ef4444" : res.ratio >= 0.6 ? "#f59e0b" : "#38bdf8";
+        loadFill.style.setProperty(
+          "--fill",
+          res.ratio >= 1 ? "#ef4444" : res.ratio >= 0.6 ? "#f59e0b" : "#38bdf8",
+        );
         loadPct.textContent = `${pct}%`;
         loadMeter.setAttribute("aria-valuenow", String(pct));
       }
 
+      // Paint the filled portion of each slider track up to the current thumb position.
+      function paintTrack(el) {
+        const { min, max } = el.def;
+        const p = ((parseFloat(el.input.value) - min) / (max - min)) * 100;
+        const track = "rgba(148, 163, 184, 0.16)";
+        el.input.style.background = el.input.disabled
+          ? track
+          : `linear-gradient(90deg, rgba(56, 189, 248, 0.5) ${p}%, ${track} ${p}%)`;
+      }
+
       function updateLabels(s) {
+        // X-ray mode forces muscle opacity, so the slider has no effect there.
+        sliderEls.muscleOp.input.disabled = s.xray;
         for (const [key, el] of Object.entries(sliderEls)) {
           el.out.textContent =
             key === "muscleOp" && s.xray
               ? "Fixed in X-ray mode"
               : el.def.fmt(s[key]);
+          paintTrack(el);
         }
-        // X-ray mode forces muscle opacity, so the slider has no effect there.
-        sliderEls.muscleOp.input.disabled = s.xray;
+      }
+
+      // Blueprint grid + edge vignette, drawn in screen space behind the limb.
+      function drawBackdrop(xray) {
+        ctx.strokeStyle = xray
+          ? "rgba(56, 189, 248, 0.07)"
+          : "rgba(56, 189, 248, 0.05)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let gx = 20; gx <= W; gx += 20) {
+          ctx.moveTo(gx + 0.5, 0);
+          ctx.lineTo(gx + 0.5, H);
+        }
+        for (let gy = 20; gy <= H; gy += 20) {
+          ctx.moveTo(0, gy + 0.5);
+          ctx.lineTo(W, gy + 0.5);
+        }
+        ctx.stroke();
+
+        const vg = ctx.createLinearGradient(0, 0, 0, H);
+        vg.addColorStop(0, "rgba(2, 6, 23, 0.5)");
+        vg.addColorStop(0.5, "rgba(2, 6, 23, 0)");
+        vg.addColorStop(1, "rgba(2, 6, 23, 0.45)");
+        ctx.fillStyle = vg;
+        ctx.fillRect(0, 0, W, H);
       }
 
       // ---------------------------------------------------------------
@@ -1681,6 +1760,7 @@
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, W, H);
         canvas.style.backgroundColor = s.xray ? "#020617" : "#131c2e";
+        drawBackdrop(s.xray);
 
         const cam = fitView(s);
         ctx.save();

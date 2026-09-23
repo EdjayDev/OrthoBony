@@ -22,7 +22,7 @@ No build step, no dependencies. Open `index.html` in any modern browser.
   - Classic Arm Sling
   - No Support
 - **Healing timeline** (Day 0–70) — acute fracture/hematoma → soft fibrous callus (day ~14) → hard bony callus (day ~35) → remodeling/healed (day ~56), visualized as the union site changes across the gap.
-- **Interactive limb controls** — fracture site (proximal/mid/distal third), arm elevation, elbow flexion (0–140°), zoom, and support/muscle transparency.
+- **Interactive limb controls** — fracture site (proximal/mid/distal third), arm elevation, elbow flexion (0–140°), forearm rotation (supination/pronation), zoom, and support/muscle transparency.
 - **Digit & tendon controls** — independent thumb, index, middle, ring, and pinky action.
 - **Live safety feedback** — a gravity-load meter and status panel rating the current pose as *safe / warning / critical*, with fragment displacement visualized at the fracture.
 
@@ -39,10 +39,10 @@ Fragment displacement scales with the worst severity, and rule-based violations 
 
 Everything lives in a single self-contained `index.html`:
 
-- **`SUPPORTS`** — single source of truth for each device: `protect` / `span` / `note` feed the safety model, while the `draw` config (colors, geometry) drives rendering.
+- **`SUPPORTS`** — plain metadata per device (`name`, `protect`, `span`, `locksRotation`, `note`). `protect` / `span` / `locksRotation` feed the safety model, while `span` also drives drawing via `spanRect`.
 - **`SLIDERS`** — one config array drives slider markup, labels, and state key.
-- **Safety model** — `distalMoment`, `healingCapacity`, `supportProtection`, `restrictionLevel`, `evaluateSafety`.
-- **Rendering** — the limb is drawn as a chain of rotating `pivot()` frames (shoulder → elbow → wrist); bone outline paths, union/click case drawing, and HiDPI-aware canvas sizing.
+- **Safety model** — `distalMoment`, `healingCapacity`, `supportProtection`, `movementRule` + `rotationRule` (combined by `restriction`), `evaluateSafety` (gravity load vs. callus capacity, worst case of the two checks wins).
+- **Rendering** — bones are drawn in rotating transform frames (shoulder → elbow → wrist) shared by `renderFrontView` / `renderSideView`; `drawBone` applies the mirrored path with a `shear` slant, and the canvas is HiDPI-aware.
 
 ## Disclaimer
 
