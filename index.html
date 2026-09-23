@@ -1,1158 +1,1737 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Orthopedic Upper Limb & Biomechanical Muscle Simulator</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Advanced Orthopedic Upper Limb & Biomechanical Muscle Simulator
+    </title>
     <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            background-color: #0b0f19;
-            color: #f8fafc;
-            font-family: system-ui, -apple-system, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        h1 { font-size: 1.25rem; margin-bottom: 4px; text-align: center; }
-        p.subtitle { color: #94a3b8; font-size: 0.78rem; margin-bottom: 4px; text-align: center; max-width: 840px; }
-        p.disclaimer { color: #64748b; font-size: 0.7rem; margin: 0 0 12px; text-align: center; max-width: 840px; }
+      :root {
+        color-scheme: dark;
+        --bg: #0a0e1a;
+        --bg-2: #0d1526;
+        --panel: #111a30;
+        --panel-2: #16213d;
+        --line: rgba(148, 163, 184, 0.14);
+        --line-strong: rgba(148, 163, 184, 0.28);
+        --accent: #38bdf8;
+        --accent-soft: rgba(56, 189, 248, 0.12);
+        --text: #f1f5f9;
+        --text-2: #cbd5e1;
+        --muted: #8ba3c0;
+        --dim: #64748b;
+        --radius: 14px;
+        --radius-sm: 9px;
+        --shadow: 0 18px 40px -12px rgba(0, 0, 0, 0.55);
+      }
 
-        .container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 20px;
-            max-width: 1180px;
-            width: 100%;
-            justify-content: center;
-        }
+      html {
+        background: var(--bg);
+      }
 
-        .viewer-pane {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            flex: 0 1 600px;
-            min-width: 0;
-        }
+      body {
+        margin: 0;
+        padding: 28px 20px 36px;
+        background:
+          radial-gradient(
+            1100px 520px at 50% -12%,
+            rgba(56, 189, 248, 0.09),
+            transparent 65%
+          ),
+          linear-gradient(180deg, var(--bg), var(--bg-2) 46%, var(--bg));
+        background-attachment: fixed;
+        color: var(--text);
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
 
-        .tab-bar {
-            display: flex;
-            gap: 8px;
-            background-color: #131c2e;
-            padding: 6px;
-            border-radius: 10px;
-            border: 1px solid #1e293b;
-        }
+      .eyebrow {
+        margin: 0 0 8px;
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--accent);
+        text-align: center;
+      }
 
-        .tab-btn {
-            flex: 1;
-            background-color: transparent;
-            border: none;
-            color: #94a3b8;
-            padding: 8px 12px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 1.3rem;
+        line-height: 1.25;
+        letter-spacing: -0.01em;
+        text-align: center;
+      }
 
-        .tab-btn.active {
-            background-color: #38bdf8;
-            color: #0b0f19;
-        }
+      p.subtitle {
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.5;
+        margin: 0 0 5px;
+        text-align: center;
+        max-width: 860px;
+      }
+      p.disclaimer {
+        color: var(--dim);
+        font-size: 0.7rem;
+        margin: 0 0 18px;
+        text-align: center;
+        max-width: 860px;
+      }
 
-        .tab-btn:focus-visible,
-        input:focus-visible,
-        select:focus-visible {
-            outline: 2px solid #38bdf8;
-            outline-offset: 2px;
-        }
+      .container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 22px;
+        max-width: 1180px;
+        width: 100%;
+        justify-content: center;
+      }
 
-        canvas {
-            display: block;
-            width: 100%;
-            height: auto;
-            aspect-ratio: 600 / 520;
-            background-color: #131c2e;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
-            border: 1px solid #1e293b;
-            box-sizing: border-box;
-        }
+      .viewer-pane {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex: 0 1 600px;
+        min-width: 0;
+      }
 
+      /* Segmented view tabs */
+      .tab-bar {
+        display: flex;
+        gap: 4px;
+        padding: 5px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--panel) 88%, #000);
+      }
+
+      .tab-btn {
+        flex: 1;
+        padding: 9px 12px;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 650;
+        cursor: pointer;
+        transition:
+          background 0.18s ease,
+          color 0.18s ease,
+          box-shadow 0.18s ease;
+      }
+
+      .tab-btn:hover {
+        background: rgba(148, 163, 184, 0.08);
+        color: var(--text-2);
+      }
+
+      .tab-btn.active {
+        background: linear-gradient(
+          180deg,
+          rgba(56, 189, 248, 0.22),
+          rgba(56, 189, 248, 0.08)
+        );
+        color: var(--accent);
+        box-shadow:
+          inset 0 0 0 1px rgba(56, 189, 248, 0.4),
+          0 2px 10px -2px rgba(56, 189, 248, 0.3);
+      }
+
+      .tab-btn:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 600 / 520;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        box-shadow:
+          var(--shadow),
+          inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        box-sizing: border-box;
+      }
+
+      .controls {
+        padding: 18px;
+        flex: 1;
+        min-width: min(360px, 100%);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 626px;
+        overflow-y: auto;
+        box-sizing: border-box;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--panel) 82%, #1a2749),
+          var(--panel)
+        );
+        box-shadow: var(--shadow);
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.22) transparent;
+      }
+
+      .controls::-webkit-scrollbar {
+        width: 10px;
+      }
+      .controls::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.18);
+        border: 3px solid transparent;
+        background-clip: padding-box;
+        border-radius: 999px;
+      }
+      .controls::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.3);
+        background-clip: padding-box;
+      }
+
+      @media (max-width: 700px) {
         .controls {
-            background-color: #131c2e;
-            padding: 16px;
-            border-radius: 12px;
-            flex: 1;
-            min-width: min(360px, 100%);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6);
-            border: 1px solid #1e293b;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            max-height: 620px;
-            overflow-y: auto;
-            box-sizing: border-box;
+          max-height: none;
         }
+      }
 
-        @media (max-width: 700px) {
-            .controls { max-height: none; }
+      /* Keep the arm in view while dragging sliders below it (skipped on short landscape screens). */
+      @media (max-width: 700px) and (min-height: 620px) {
+        .viewer-pane {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background-color: #0b0f19;
+          padding-bottom: 6px;
         }
 
         /* Keep the arm in view while dragging sliders below it (skipped on short landscape screens). */
         @media (max-width: 700px) and (min-height: 620px) {
-            .viewer-pane {
-                position: sticky;
-                top: 0;
-                z-index: 10;
-                background-color: #0b0f19;
-                padding-bottom: 6px;
-            }
-            canvas {
-                width: auto;
-                height: min(42vh, calc((100vw - 40px) * 0.8667));
-                margin: 0 auto;
-            }
+          .viewer-pane {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background-color: #0b0f19;
+            padding-bottom: 6px;
+          }
+          canvas {
+            width: auto;
+            height: min(42vh, calc((100vw - 40px) * 0.8667));
+            margin: 0 auto;
+          }
         }
 
         .control-section {
-            border-top: 1px solid #1e293b;
-            padding-top: 8px;
-            margin-top: 4px;
+          border-top: 1px solid #1e293b;
+          padding-top: 8px;
+          margin-top: 4px;
         }
+      }
 
-        .control-section.first {
-            border-top: none;
-            padding-top: 0;
-            margin-top: 0;
-        }
+      .control-section {
+        border-top: 1px solid var(--line);
+        padding-top: 10px;
+        margin-top: 4px;
+      }
 
-        .control-section-title {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #38bdf8;
-            margin-bottom: 6px;
-            font-weight: bold;
-        }
+      .control-section.first {
+        border-top: none;
+        padding-top: 0;
+        margin-top: 0;
+      }
 
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            margin-bottom: 6px;
-        }
+      .control-section-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-2);
+      }
 
-        label, .label-row {
-            font-size: 0.75rem;
-            color: #cbd5e1;
-        }
+      .control-section-title::before {
+        content: "";
+        width: 3px;
+        height: 13px;
+        border-radius: 2px;
+        background: linear-gradient(
+          180deg,
+          var(--accent),
+          rgba(56, 189, 248, 0.15)
+        );
+        box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+      }
 
-        .label-row {
-            display: flex;
-            justify-content: space-between;
-            gap: 8px;
-        }
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        margin-bottom: 8px;
+      }
 
-        output { text-align: right; }
+      label,
+      .label-row {
+        font-size: 0.75rem;
+        color: var(--text-2);
+      }
 
-        input[type="range"] {
-            width: 100%;
-            accent-color: #38bdf8;
-            cursor: pointer;
-            height: 5px;
-        }
+      .label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 1px;
+      }
 
-        input[type="range"]:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
+      .label-row output,
+      #loadPct {
+        font-size: 0.68rem;
+        font-weight: 650;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+        background: var(--accent-soft);
+        border: 1px solid rgba(56, 189, 248, 0.22);
+        border-radius: 999px;
+        padding: 1px 8px;
+        white-space: nowrap;
+        text-align: right;
+      }
 
-        select {
-            background-color: #0b0f19;
-            color: #f8fafc;
-            border: 1px solid #1e293b;
-            padding: 6px;
-            border-radius: 6px;
-            font-size: 0.78rem;
-            cursor: pointer;
-        }
+      /* Range sliders: painted track set from JS, custom thumb */
+      input[type="range"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 6px;
+        margin: 6px 0 4px;
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.16);
+        cursor: pointer;
+        outline: none;
+      }
 
-        .status-box {
-            background-color: #0b0f19;
-            padding: 8px;
-            border-radius: 8px;
-            border-left: 4px solid #38bdf8;
-            font-size: 0.75rem;
-            line-height: 1.35;
-        }
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--panel);
+        border: 2px solid var(--accent);
+        box-shadow:
+          0 0 0 3px var(--accent-soft),
+          0 2px 5px rgba(0, 0, 0, 0.45);
+        transition: box-shadow 0.15s ease;
+      }
 
-        .status-title {
-            font-weight: bold;
-            color: #38bdf8;
-            margin-bottom: 2px;
-        }
+      input[type="range"]::-webkit-slider-thumb:hover {
+        box-shadow:
+          0 0 0 5px var(--accent-soft),
+          0 2px 5px rgba(0, 0, 0, 0.45);
+      }
 
-        /* Load meter + status stay visible at the bottom of the scrolling panel */
-        .feedback {
-            position: sticky;
-            bottom: 0;
-            margin: 0 -16px -16px;
-            padding: 10px 16px 16px;
-            background-color: #131c2e;
-            border-top: 1px solid #1e293b;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+      input[type="range"]::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--panel);
+        border: 2px solid var(--accent);
+        box-shadow:
+          0 0 0 3px var(--accent-soft),
+          0 2px 5px rgba(0, 0, 0, 0.45);
+      }
 
-        .load-bar {
-            position: relative;
-            height: 6px;
-            margin-top: 4px;
-            background-color: #0b0f19;
-            border-radius: 3px;
-            overflow: hidden;
-        }
+      input[type="range"]:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
 
-        .load-bar::after { /* 100% of callus capacity */
-            content: '';
-            position: absolute;
-            left: 66.667%;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background-color: #64748b;
-        }
+      select {
+        -webkit-appearance: none;
+        appearance: none;
+        background-color: var(--panel-2);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238ba3c0' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 11px center;
+        padding: 8px 32px 8px 12px;
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-sm);
+        color: var(--text);
+        font-size: 0.78rem;
+        cursor: pointer;
+        transition: border-color 0.15s ease;
+      }
 
-        .load-fill {
-            height: 100%;
-            width: 0;
-            background-color: #38bdf8;
-            transition: width 0.15s ease;
-        }
+      select:hover {
+        border-color: rgba(56, 189, 248, 0.45);
+      }
+
+      /* Severity-themed status card; --state is set from JS */
+      .status-box {
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--state, var(--accent)) 7%, var(--panel-2)),
+          var(--panel-2)
+        );
+        padding: 10px 12px;
+        border-left: 3px solid var(--state, var(--accent));
+        border-radius: 10px;
+        font-size: 0.75rem;
+        line-height: 1.4;
+      }
+
+      .status-title {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-weight: 700;
+        color: var(--state, var(--accent));
+        margin-bottom: 2px;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--state, var(--accent));
+        box-shadow:
+          0 0 0 3px
+            color-mix(in srgb, var(--state, var(--accent)) 18%, transparent),
+          0 0 10px var(--state, var(--accent));
+        transition: background 0.25s ease;
+      }
+
+      /* Sticky load meter + status fade-in at the bottom of the scrolling panel */
+      .feedback {
+        position: sticky;
+        bottom: 0;
+        margin: 0 -18px -18px;
+        padding: 12px 18px 18px;
+        background: linear-gradient(
+          180deg,
+          rgba(17, 26, 48, 0) 0%,
+          rgba(17, 26, 48, 0.82) 26%,
+          #111a30 52%
+        );
+        border-top: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .load-bar {
+        position: relative;
+        height: 8px;
+        margin-top: 6px;
+        background: var(--bg);
+        border-radius: 999px;
+        overflow: hidden;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+      }
+
+      .load-bar::after {
+        /* 100% of callus capacity */
+        content: "";
+        position: absolute;
+        left: 66.667%;
+        top: -1px;
+        bottom: -1px;
+        width: 2px;
+        background: var(--dim);
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .load-fill {
+        height: 100%;
+        width: 0;
+        background: var(--fill, var(--accent));
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--fill, var(--accent)) 78%, #fff),
+          var(--fill, var(--accent))
+        );
+        transition: width 0.15s ease;
+      }
     </style>
-</head>
-<body>
-
+  </head>
+  <body>
+    <p class="eyebrow">Orthopedic Training Simulator</p>
     <h1>Advanced Orthopedic Upper Limb & Biomechanical Muscle Simulator</h1>
-    <p class="subtitle">Default Posterior Long Arm Elbow Splint, targeted orthopedic immobilization profiles, and accurate radius/ulna union.</p>
-    <p class="disclaimer">Educational visualization only. The healing timeline and splint rules are simplified and are not clinical guidance.</p>
+    <p class="subtitle">
+      Default Posterior Long Arm Elbow Splint, targeted orthopedic
+      immobilization profiles, and accurate radius/ulna union.
+    </p>
+    <p class="disclaimer">
+      Educational visualization only. The healing timeline and splint rules are
+      simplified and are not clinical guidance.
+    </p>
 
     <div class="container">
-        <!-- Viewer Pane with Tabs -->
-        <div class="viewer-pane">
-            <div class="tab-bar" role="tablist" aria-label="View angle">
-                <button class="tab-btn active" id="btnFront" role="tab" aria-selected="true" data-view="front">Anterior (Front) View</button>
-                <button class="tab-btn" id="btnSide" role="tab" aria-selected="false" data-view="side">Lateral (Side) View</button>
-            </div>
-            <canvas id="simCanvas" width="600" height="520" role="img" aria-label="Forearm fracture simulation"></canvas>
+      <!-- Viewer Pane with Tabs -->
+      <div class="viewer-pane">
+        <div class="tab-bar" role="tablist" aria-label="View angle">
+          <button
+            class="tab-btn active"
+            id="btnFront"
+            role="tab"
+            aria-selected="true"
+            data-view="front"
+          >
+            Anterior (Front) View
+          </button>
+          <button
+            class="tab-btn"
+            id="btnSide"
+            role="tab"
+            aria-selected="false"
+            data-view="side"
+          >
+            Lateral (Side) View
+          </button>
+        </div>
+        <canvas
+          id="simCanvas"
+          width="600"
+          height="520"
+          role="img"
+          aria-label="Forearm fracture simulation"
+        ></canvas>
+      </div>
+
+      <!-- Controls Panel -->
+      <div class="controls">
+        <div class="control-section first">
+          <div class="control-section-title">
+            Global Arm, Support & X-Ray Mode
+          </div>
+          <div class="control-group">
+            <label for="renderMode">View Mode & Rendering:</label>
+            <select id="renderMode">
+              <option value="xray">
+                Clinical X-Ray Mode (Inverted/Bone Density)
+              </option>
+              <option value="anatomical">Standard Anatomical Render</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="supportType">Immobilization Support Type:</label>
+            <select id="supportType">
+              <option value="posterior_long" selected>
+                Posterior Long Arm Elbow Splint (Default)
+              </option>
+              <option value="sugar_tong">Sugar-Tong Coaptation Splint</option>
+              <option value="volar_short">Volar Short Arm Splint</option>
+              <option value="ulnar_gutter">Ulnar Gutter Splint</option>
+              <option value="radial_gutter">Radial Gutter Splint</option>
+              <option value="thumb_spica">Thumb Spica Splint</option>
+              <option value="sling">Classic Arm Sling (90° Support)</option>
+              <option value="none">No Support (Unconstrained)</option>
+            </select>
+          </div>
+          <div id="globalSliders"></div>
         </div>
 
-        <!-- Controls Panel -->
-        <div class="controls">
-            <div class="control-section first">
-                <div class="control-section-title">Global Arm, Support & X-Ray Mode</div>
-                <div class="control-group">
-                    <label for="renderMode">View Mode & Rendering:</label>
-                    <select id="renderMode">
-                        <option value="xray">Clinical X-Ray Mode (Inverted/Bone Density)</option>
-                        <option value="anatomical">Standard Anatomical Render</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label for="supportType">Immobilization Support Type:</label>
-                    <select id="supportType">
-                        <option value="posterior_long" selected>Posterior Long Arm Elbow Splint (Default)</option>
-                        <option value="sugar_tong">Sugar-Tong Coaptation Splint</option>
-                        <option value="volar_short">Volar Short Arm Splint</option>
-                        <option value="ulnar_gutter">Ulnar Gutter Splint</option>
-                        <option value="radial_gutter">Radial Gutter Splint</option>
-                        <option value="thumb_spica">Thumb Spica Splint</option>
-                        <option value="sling">Classic Arm Sling (90° Support)</option>
-                        <option value="none">No Support (Unconstrained)</option>
-                    </select>
-                </div>
-                <div id="globalSliders"></div>
-            </div>
-
-            <div class="control-section">
-                <div class="control-section-title">Individual Digit & Tendon Controls</div>
-                <div id="digitSliders"></div>
-            </div>
-
-            <div class="feedback">
-                <div id="loadMeter" role="meter" aria-label="Gravity load on the fracture as a percentage of callus capacity" aria-valuemin="0" aria-valuemax="150" aria-valuenow="0">
-                    <div class="label-row"><span>Gravity load vs. callus capacity</span><span id="loadPct">0%</span></div>
-                    <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
-                </div>
-                <div class="status-box" id="statusBox" role="status" aria-live="polite">
-                    <div class="status-title" id="statusTitle">Protected & Stable</div>
-                    <div id="statusText">Posterior long arm splint securely immobilizing elbow and forearm.</div>
-                </div>
-            </div>
+        <div class="control-section">
+          <div class="control-section-title">
+            Individual Digit & Tendon Controls
+          </div>
+          <div id="digitSliders"></div>
         </div>
+
+        <div class="feedback">
+          <div
+            id="loadMeter"
+            role="meter"
+            aria-label="Gravity load on the fracture as a percentage of callus capacity"
+            aria-valuemin="0"
+            aria-valuemax="150"
+            aria-valuenow="0"
+          >
+            <div class="label-row">
+              <span>Gravity load vs. callus capacity</span
+              ><span id="loadPct">0%</span>
+            </div>
+            <div class="load-bar">
+              <div class="load-fill" id="loadFill"></div>
+            </div>
+          </div>
+          <div
+            class="status-box"
+            id="statusBox"
+            role="status"
+            aria-live="polite"
+          >
+            <div class="status-title">
+              <span class="status-dot" aria-hidden="true"></span
+              ><span id="statusTitle">Protected & Stable</span>
+            </div>
+            <div id="statusText">
+              Posterior long arm splint securely immobilizing elbow and forearm.
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <script>
-        // ---------------------------------------------------------------
-        // Setup
-        // ---------------------------------------------------------------
-        const W = 600, H = 520;
-        const FOREARM_LEN = 135;
-        const canvas = document.getElementById('simCanvas');
-        const ctx = canvas.getContext('2d');
-        let dpr = 1;
-        let currentView = 'front';
-
-        const renderModeSelect = document.getElementById('renderMode');
-        const supportTypeSelect = document.getElementById('supportType');
-        const statusBox = document.getElementById('statusBox');
-        const statusTitle = document.getElementById('statusTitle');
-        const statusText = document.getElementById('statusText');
-        const loadFill = document.getElementById('loadFill');
-        const loadPct = document.getElementById('loadPct');
-        const loadMeter = document.getElementById('loadMeter');
-
-        // locksRotation: true if the device crosses the elbow and holds pronation/supination still.
-        // protect: fraction of the bending load the device carries when it fully spans the fracture (illustrative values).
-        // span: where the device sits along the forearm, in px from the elbow (also used to draw it).
-        const SUPPORTS = {
-            posterior_long: { name: 'Posterior Long Arm Splint', locksRotation: true, protect: 0.97, span: [-10, 180], note: 'Restricts elbow flexion/extension and forearm rotation to protect the fracture site.' },
-            sugar_tong:     { name: 'Sugar-Tong Splint',         locksRotation: true, protect: 0.97, span: [-15, 190], note: 'Wraps the forearm and elbow to limit flexion and forearm rotation.' },
-            volar_short:    { name: 'Volar Short Arm Splint',    locksRotation: false, protect: 0.95, span: [55, 180],  note: 'Immobilizes the wrist and distal forearm. Forearm rotation stays free.' },
-            ulnar_gutter:   { name: 'Ulnar Gutter Splint',       locksRotation: false, protect: 0.5,  span: [60, 180],  note: 'Supports the ulnar side of the wrist and hand (ring and small fingers).' },
-            radial_gutter:  { name: 'Radial Gutter Splint',      locksRotation: false, protect: 0.5,  span: [60, 180],  note: 'Supports the radial side of the wrist and hand (thumb and index).' },
-            thumb_spica:    { name: 'Thumb Spica Splint',        locksRotation: false, protect: 0.5,  span: [55, 180],  note: 'Immobilizes the thumb and wrist.' },
-            sling:          { name: 'Arm Sling',                 locksRotation: false, protect: 0.95, span: null,       note: 'Supports the arm at rest. Avoid lifting the arm or loading the fingers.' },
-            none:           { name: 'No Support',                locksRotation: false, protect: 0,    span: null,       note: '' }
-        };
-
-        // ---------------------------------------------------------------
-        // Slider definitions: one config drives markup, labels and listeners
-        // ---------------------------------------------------------------
-        function timelineLabel(d) {
-            if (d === 0) return 'Day 0 (Acute Fracture)';
-            if (d < 14) return `Day ${d} (Inflammation & Hematoma)`;
-            if (d < 35) return `Day ${d} (~Week ${Math.round(d / 7)} Soft Callus)`;
-            if (d < 56) return `Day ${d} (~Week ${Math.round(d / 7)} Hard Bony Callus)`;
-            return `Day ${d}+ (Bone Remodeling / Healed)`;
-        }
-
-        // Forearm is 135 px long, so thirds split at 45 and 90.
-        function fractureLabel(y) {
-            return y < FOREARM_LEN / 3 ? 'Proximal Third (1/3)'
-                 : y < (FOREARM_LEN * 2) / 3 ? 'Mid-Shaft (1/3)'
-                 : 'Distal Third (1/3)';
-        }
-
-        // Forearm rotation, measured from neutral (thumb up): negative = supination, positive = pronation.
-        const SUPINATION_MAX = 85, PRONATION_MAX = 80;
-        function rotationLabel(v) {
-            if (v === 0) return 'Neutral (thumb up)';
-            return v < 0 ? `${-v}° Supination` : `${v}° Pronation`;
-        }
-
-        const deg = v => `${v}°`;
-        const pct = v => `${v}%`;
-
-        const SLIDERS = {
-            globalSliders: [
-                { key: 'timeline',   label: 'Healing Timeline (Day 0 to Weeks)',       min: 0,   max: 70,  step: 1,    value: 0,  fmt: timelineLabel },
-                { key: 'fractureY',  label: 'Fracture Site (Radius/Ulna Level)',       min: 35,  max: 120, step: 1,    value: 65, fmt: fractureLabel },
-                { key: 'zoom',       label: 'Zoom (relative to auto-fit)',                              min: 0.6, max: 1.6, step: 0.05, value: 1,  fmt: v => v.toFixed(2) + 'x' },
-                { key: 'armLift',    label: 'Arm Elevation Angle',                     min: -30, max: 60,  step: 1,    value: 0,  fmt: deg },
-                { key: 'elbowFlex',  label: 'Elbow Flexion Angle (0°–140°)',           min: 0,   max: 140, step: 1,    value: 95, fmt: deg },
-                { key: 'rotation',   label: 'Forearm Rotation (Supination / Pronation)', min: -SUPINATION_MAX, max: PRONATION_MAX, step: 1, value: 0, fmt: rotationLabel },
-                { key: 'supportOp',  label: 'Support Transparency',                    min: 0,   max: 100, step: 1,    value: 85, fmt: pct },
-                { key: 'muscleOp',   label: 'Muscle Transparency',                     min: 10,  max: 100, step: 1,    value: 40, fmt: pct }
-            ],
-            digitSliders: [
-                { key: 'thumb',  label: 'Thumb Action',         min: 0,   max: 40, step: 1, value: 0, fmt: deg },
-                { key: 'index',  label: 'Index Finger Action',  min: -20, max: 35, step: 1, value: 0, fmt: deg },
-                { key: 'middle', label: 'Middle Finger Action', min: -20, max: 35, step: 1, value: 0, fmt: deg },
-                { key: 'ring',   label: 'Ring Finger Action',   min: -20, max: 35, step: 1, value: 0, fmt: deg },
-                { key: 'pinky',  label: 'Pinky Finger Action',  min: -20, max: 35, step: 1, value: 0, fmt: deg }
-            ]
-        };
-
-        const sliderEls = {};
-        for (const [containerId, defs] of Object.entries(SLIDERS)) {
-            const box = document.getElementById(containerId);
-            defs.forEach(def => {
-                const id = `slider-${def.key}`;
-                const group = document.createElement('div');
-                group.className = 'control-group';
-                group.innerHTML =
-                    `<div class="label-row"><label for="${id}">${def.label}</label><output for="${id}"></output></div>` +
-                    `<input type="range" id="${id}" min="${def.min}" max="${def.max}" step="${def.step}" value="${def.value}">`;
-                box.appendChild(group);
-                sliderEls[def.key] = { def, input: group.querySelector('input'), out: group.querySelector('output') };
-            });
-        }
-
-        // ---------------------------------------------------------------
-        // State + shared safety logic (used by BOTH views)
-        // ---------------------------------------------------------------
-        function readState() {
-            const s = {
-                xray: renderModeSelect.value === 'xray',
-                support: supportTypeSelect.value,
-                view: currentView
-            };
-            for (const [key, el] of Object.entries(sliderEls)) s[key] = parseFloat(el.input.value);
-            return s;
-        }
-
-        // ---------------------------------------------------------------
-        // Gravity load model
-        // ---------------------------------------------------------------
-        // Bending moment at the fracture = weight of everything distal to it x its horizontal lever arm.
-        // Relative masses: forearm = 1, hand ~ 0.375 (roughly 0.6% vs 1.6% of body mass).
-        const HAND_MASS = 0.375;
-        const PROXIMAL_OVERLAP = 50; // px of splint needed above the fracture for it to carry full load
-
-        function distalMoment(fracY) {
-            const L = FOREARM_LEN - fracY;                  // distal forearm length
-            const forearm = (L / FOREARM_LEN) * (L / 2);    // its mass share x lever to its centre
-            const hand = HAND_MASS * (L + 44);              // hand centre sits ~44 px past the end of the shaft
-            return forearm + hand;
-        }
-        const REF_MOMENT = distalMoment(65); // mid-shaft fracture = 1.0
-
-        // Forearm angle from "hanging straight down", exactly as drawn (elbow flexion minus arm elevation).
-        function forearmAngle(s) {
-            return (Math.max(0, Math.min(140, s.elbowFlex)) - s.armLift) * Math.PI / 180;
-        }
-
-        // What the healing bone can carry, in units of "mid-shaft, forearm held horizontal".
-        // Anchored to the app's own phases: hematoma (day 0), soft callus (14), hard callus (35), remodeled (56).
-        const CAPACITY_POINTS = [[0, 0.1], [14, 0.3], [35, 1.25], [56, 3.0]];
-        function healingCapacity(day) {
-            const pts = CAPACITY_POINTS;
-            if (day >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
-            for (let i = 1; i < pts.length; i++) {
-                if (day <= pts[i][0]) {
-                    const [d0, c0] = pts[i - 1];
-                    const [d1, c1] = pts[i];
-                    return c0 + (c1 - c0) * (day - d0) / (d1 - d0);
-                }
-            }
-        }
-
-        // A device only protects if it actually reaches the fracture with enough lever above it.
-        function supportProtection(s) {
-            const sup = SUPPORTS[s.support];
-            let coverage = 1;
-            if (sup.span) coverage = Math.max(0, Math.min(1, (10 + s.fractureY - sup.span[0]) / PROXIMAL_OVERLAP));
-            return { protect: sup.protect * coverage, coverage };
-        }
-
-        const RANK = { safe: 0, warning: 1, unsafe: 2 };
-
-        // Movement rules: does the pose defeat what the device is meant to restrict?
-        // Returns 'safe' | 'warning' | 'unsafe'
-        function movementRule(s) {
-            const t = s.timeline;
-            const total = Math.abs(s.thumb) + Math.abs(s.index) + Math.abs(s.middle) + Math.abs(s.ring) + Math.abs(s.pinky);
-            const ulnar = Math.abs(s.ring) + Math.abs(s.pinky);
-            const radial = Math.abs(s.thumb) + Math.abs(s.index);
-
-            switch (s.support) {
-                case 'none':
-                    if (t < 35) return 'unsafe';
-                    break;
-                case 'posterior_long':
-                    if (t < 21 && (Math.abs(s.elbowFlex - 95) > 35 || total > 20)) return 'warning';
-                    break;
-                case 'ulnar_gutter':
-                    if (ulnar > 15 && t < 28) return 'warning';
-                    break;
-                case 'radial_gutter':
-                    if (radial > 15 && t < 28) return 'warning';
-                    break;
-                case 'thumb_spica':
-                    if (Math.abs(s.thumb) > 10 && t < 28) return 'warning';
-                    break;
-                case 'sling':
-                    if ((Math.abs(s.armLift) > 20 || total > 15) && t < 35) return 'unsafe';
-                    break;
-            }
-            return 'safe';
-        }
-
-        // Forearm rotation twists the fracture. Only devices that cross the elbow hold it still.
-        function rotationRule(s) {
-            const r = Math.abs(s.rotation);
-            const t = s.timeline;
-            if (s.support === 'none' || t >= 28) return 'safe'; // 'none' is already flagged by the movement rules
-            if (SUPPORTS[s.support].locksRotation) return r > 20 ? 'warning' : 'safe';
-            return r > 60 ? 'unsafe' : r > 30 ? 'warning' : 'safe';
-        }
-
-        function restriction(s) {
-            const move = movementRule(s);
-            const rot = rotationRule(s);
-            return RANK[rot] > RANK[move] ? { level: rot, reason: 'rotation' } : { level: move, reason: 'movement' };
-        }
-
-        // Two independent checks, worst one wins: gravity load vs. callus capacity, and device restriction rules.
-        // Used by BOTH views.
-        function evaluateSafety(s) {
-            const t = s.timeline;
-            const load = distalMoment(s.fractureY) / REF_MOMENT * Math.abs(Math.sin(forearmAngle(s)));
-            const { protect, coverage } = supportProtection(s);
-            const capacity = healingCapacity(t);
-            const ratio = load * (1 - protect) / capacity;
-
-            const gravityLevel = ratio >= 1 ? 'unsafe' : ratio >= 0.6 ? 'warning' : 'safe';
-            const rule = restriction(s);
-            const ruleLevel = rule.level;
-            const gravityWins = RANK[gravityLevel] >= RANK[ruleLevel];
-            const level = gravityWins ? gravityLevel : ruleLevel;
-            const cause = level === 'safe' ? 'none' : gravityWins ? 'gravity' : 'restriction';
-
-            // Fragment displacement scales with severity; rule-based violations fade as the callus stiffens.
-            const fade = 1 - Math.min(1, t / 35);
-            const ruleSeverity = (ruleLevel === 'unsafe' ? 1.5 : ruleLevel === 'warning' ? 0.63 : 0) * fade;
-            const gravitySeverity = ratio >= 0.6 ? Math.min(1.5, ratio) : 0;
-
-            return { level, cause, reason: rule.reason, ratio, load, capacity, protect, coverage, severity: Math.max(ruleSeverity, gravitySeverity) };
-        }
-
-        // Fragments sag the way gravity pulls, expressed in the forearm's local frame.
-        function displacement(res, s) {
-            const dir = Math.sin(forearmAngle(s)) >= 0 ? 1 : -1;
-            return { x: dir * 4 * res.severity, y: 3 * res.severity, ang: -dir * 0.04 * res.severity };
-        }
-
-        // ---------------------------------------------------------------
-        // Canvas setup (HiDPI aware)
-        // ---------------------------------------------------------------
-        function setupCanvas() {
-            dpr = window.devicePixelRatio || 1;
-            canvas.width = Math.round(W * dpr);
-            canvas.height = Math.round(H * dpr);
-        }
-
-        // ---------------------------------------------------------------
-        // Drawing helpers
-        // ---------------------------------------------------------------
-        const boneFill = xray => xray ? '#f8fafc' : '#f1f5f9';
-        const boneStroke = xray => xray ? '#93c5fd' : '#94a3b8';
-
-        function setBoneStyle(xray) {
-            ctx.fillStyle = boneFill(xray);
-            ctx.strokeStyle = boneStroke(xray);
-            ctx.lineWidth = xray ? 2 : 1.5;
-        }
-
-        function fillStroke() {
-            ctx.fill();
-            ctx.stroke();
-        }
-
-        function drawMuscle(cx, cy, rx, ry, rot, v) {
-            ctx.fillStyle = v.s.xray ? `rgba(15, 23, 42, ${v.musOp})` : `rgba(225, 29, 72, ${v.musOp})`;
-            ctx.strokeStyle = v.s.xray ? `rgba(51, 65, 85, ${v.musOp})` : `rgba(159, 18, 57, ${v.musOp})`;
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, rx, ry, rot, 0, Math.PI * 2);
-            fillStroke();
-        }
-
-        function drawHumerus(xray) {
-            setBoneStyle(xray);
-            ctx.beginPath();
-            ctx.moveTo(-10, 0);
-            ctx.bezierCurveTo(-22, 0, -25, 25, -12, 35);
-            ctx.bezierCurveTo(-16, 60, -14, 90, -17, 110);
-            ctx.bezierCurveTo(-24, 116, -22, 123, -14, 125);
-            ctx.lineTo(14, 125);
-            ctx.bezierCurveTo(22, 123, 24, 116, 17, 110);
-            ctx.bezierCurveTo(14, 90, 16, 60, 12, 35);
-            ctx.bezierCurveTo(25, 25, 22, 0, 10, 0);
-            ctx.closePath();
-            fillStroke();
-        }
-
-        // Bone outline paths (drawn mirrored so the radius sits on the thumb side)
-        function pathRadiusUpper(f) {
-            ctx.moveTo(-7, 0);
-            ctx.bezierCurveTo(-11, 0, -12, 10, -8, 15);
-            ctx.bezierCurveTo(-14, f * 0.5, -12, f, -9, f);
-            ctx.lineTo(7, f);
-            ctx.bezierCurveTo(9, f, 10, f * 0.5, 8, 15);
-            ctx.bezierCurveTo(12, 10, 10, 0, 7, 0);
-            ctx.closePath();
-        }
-
-        function pathRadiusLower(L) {
-            ctx.moveTo(-9, 0);
-            ctx.lineTo(9, 0);
-            ctx.bezierCurveTo(11, L * 0.6, 15, L - 10, 11, L);
-            ctx.lineTo(-9, L);
-            ctx.bezierCurveTo(-11, L - 10, -10, L * 0.6, -9, 0);
-            ctx.closePath();
-        }
-
-        function pathUlnaUpper(f) {
-            const mid = Math.max(f * 0.5, 32); // keep control point below the olecranon notch
-            ctx.moveTo(-8, 0);
-            ctx.bezierCurveTo(-14, 0, -15, 8, -10, 14);
-            ctx.bezierCurveTo(-6, 18, -6, 24, -10, 30);
-            ctx.bezierCurveTo(-12, mid, -11, f, -8, f);
-            ctx.lineTo(8, f);
-            ctx.bezierCurveTo(11, f, 12, mid, 8, 30);
-            ctx.bezierCurveTo(4, 24, 4, 18, 8, 14);
-            ctx.bezierCurveTo(12, 8, 10, 0, -8, 0);
-            ctx.closePath();
-        }
-
-        function pathUlnaLower(L) {
-            ctx.moveTo(-8, 0);
-            ctx.lineTo(8, 0);
-            ctx.bezierCurveTo(9, L * 0.7, 8, L - 8, 6, L);
-            ctx.lineTo(-6, L);
-            ctx.bezierCurveTo(-8, L - 8, -9, L * 0.7, -8, 0);
-            ctx.closePath();
-        }
-
-        function drawBone(pathFn, arg, x, y, rot, xray, shear = 0) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(rot);
-            ctx.transform(1, 0, shear, 1, 0, 0); // slant the shaft: x shifts by shear * y
-            ctx.scale(-1, 1);
-            setBoneStyle(xray);
-            ctx.beginPath();
-            pathFn(arg);
-            fillStroke();
-            ctx.restore();
-        }
-
-        function fractureGapColor(s, level) {
-            if (s.xray) {
-                return s.timeline < 14 ? 'rgba(255, 255, 255, 0.9)'
-                     : s.timeline < 35 ? 'rgba(147, 197, 253, 0.8)'
-                     : 'rgba(248, 250, 252, 1.0)';
-            }
-            return level === 'unsafe' ? 'rgba(239, 68, 68, 0.8)'
-                 : level === 'warning' ? 'rgba(245, 158, 11, 0.7)'
-                 : 'rgba(56, 189, 248, 0.5)';
-        }
-
-        // Gap (acute) -> soft callus (day 14+) -> solid union (day 35+)
-        function drawUnion(cx, fracDist, v, opts = {}) {
-            const { s, level } = v;
-            const y = 10 + fracDist;
-            if (s.timeline >= 35) {
-                setBoneStyle(s.xray);
-                ctx.beginPath();
-                ctx.roundRect(cx - 9, y - 2, 18, 14, 4);
-                fillStroke();
-            } else if (s.timeline >= 14) {
-                ctx.fillStyle = s.xray ? 'rgba(147, 197, 253, 0.75)' : 'rgba(217, 119, 6, 0.75)';
-                ctx.beginPath();
-                ctx.ellipse(cx, y + 5, opts.callusRx || 13, 9, 0, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                ctx.fillStyle = fractureGapColor(s, level);
-                ctx.beginPath();
-                ctx.roundRect(cx - 8, y, 16, 12, 3);
-                ctx.fill();
-                if (opts.strokeGap) {
-                    setBoneStyle(s.xray);
-                    ctx.stroke();
-                }
-            }
-        }
-
-        function fingerColor(val, s) {
-            return Math.abs(val) > 10 && s.timeline < 35 ? '#ef4444' : boneFill(s.xray);
-        }
-
-        // The outline keeps overlapping fingers readable when the hand is edge-on.
-        function drawDigit(x, y, angleRad, len, width, color, outline) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angleRad);
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, len);
-            if (outline) {
-                ctx.strokeStyle = outline;
-                ctx.lineWidth = width + 2;
-                ctx.stroke();
-            }
-            ctx.strokeStyle = color;
-            ctx.lineWidth = width;
-            ctx.stroke();
-            ctx.restore();
-        }
-
-        const toRad = d => d * Math.PI / 180;
-
-        // cos of the rotation measured from full supination: 1 supinated, ~0 neutral, -1 fully pronated.
-        const pronationCos = s => Math.cos(toRad(s.rotation + SUPINATION_MAX));
-
-        // Frames the arm: works out where the shoulder, elbow and fingertips land for this pose and
-        // scales/centres the view so a flexed arm and a hanging arm both fill the canvas.
-        // Coordinates match the view code (shoulder at (-30,-50) front, (0,-50) side).
-        function fitView(s) {
-            const front = s.view === 'front';
-            const a = toRad(s.armLift);
-            const phi = toRad(Math.max(0, Math.min(140, s.elbowFlex)) - s.armLift);
-            const S = { x: front ? -30 : 0, y: -50 };
-            const E = { x: S.x + 125 * Math.sin(a), y: S.y + 125 * Math.cos(a) };
-            const T = { x: E.x - 217 * Math.sin(phi), y: E.y + 217 * Math.cos(phi) }; // fingertip
-            const pts = front
-                ? [S, E, T, { x: -100, y: -82 }, { x: 2, y: -29 }]   // clavicle and deltoid
-                : [S, E, T, { x: -26, y: -76 }, { x: 26, y: -26 }];  // shoulder ring
-            const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
-            const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-            const PAD = 34; // room for splints and the sling strap
-            const scale = Math.max(0.7, Math.min(1.7, W / (x1 - x0 + 2 * PAD), H / (y1 - y0 + 2 * PAD)));
-            return { scale, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
-        }
-        const FINGERS = ['index', 'middle', 'ring', 'pinky'];
-        const FINGER_LEN = { index: 33, middle: 37, ring: 34, pinky: 28 };
-
-        // ---------------------------------------------------------------
-        // Front (anterior) view
-        // ---------------------------------------------------------------
-        function renderFrontView(v) {
-            const { s, level, disp, supOp } = v;
-            const xray = s.xray;
-            const fracDist = s.fractureY;
-            const lowerDist = FOREARM_LEN - fracDist;
-
-            ctx.translate(0, -60);
-
-            // Torso & clavicle
-            ctx.strokeStyle = xray ? '#1e293b' : '#334155';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(-110, -70);
-            ctx.lineTo(-140, 160);
-            ctx.moveTo(110, -70);
-            ctx.lineTo(140, 160);
-            ctx.stroke();
-
-            setBoneStyle(xray);
-            ctx.beginPath();
-            ctx.roundRect(-100, -80, 90, 14, 6);
-            fillStroke();
-
-            // Deltoid
-            drawMuscle(-30, -55, 32, 26, 0.2, v);
-
-            // Humerus
-            ctx.save();
-            ctx.translate(-30, -50);
-            ctx.rotate(-toRad(s.armLift));
-            drawHumerus(xray);
-            drawMuscle(-2, 50, 14, 40, 0, v); // biceps / brachialis
-            renderUpperArmSupport(s.support, supOp, xray);
-
-            // Elbow & forearm
-            ctx.save();
-            ctx.translate(0, 125);
-            ctx.rotate(toRad(Math.max(0, Math.min(140, s.elbowFlex))));
-
-            setBoneStyle(xray);
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 18, 12, 0, 0, Math.PI * 2); // epicondyles
-            fillStroke();
-
-            drawMuscle(0, 65, 20, 55, 0, v); // forearm muscle group
-
-            // Anterior view of the right arm. Fully supinated: radius lateral (thumb side, viewer's left), ulna medial.
-            // As the forearm pronates the distal ends swap sides, so the bones cross (cosP: 1 -> 0 -> -1).
-            const cosP = pronationCos(s);
-            const RADIUS_X = -14, ULNA_X = 14;
-            const kR = 14 * (1 - cosP) / FOREARM_LEN;   // radius drifts medially toward the wrist
-            const kU = -14 * (1 - cosP) / FOREARM_LEN;  // ulna drifts laterally toward the wrist
-            const lowerY = 10 + fracDist + 12;
-
-            drawBone(pathUlnaUpper, fracDist, ULNA_X, 10, 0, xray, kU);
-            drawUnion(ULNA_X + kU * fracDist, fracDist, v);
-            drawBone(pathUlnaLower, lowerDist, ULNA_X + kU * (fracDist + 12) + disp.x * 0.9, lowerY + disp.y * 0.95, disp.ang * 0.85, xray, kU);
-
-            // Radius is anterior to the ulna when crossed, so it draws on top.
-            drawBone(pathRadiusUpper, fracDist, RADIUS_X, 10, 0, xray, kR);
-            drawUnion(RADIUS_X + kR * fracDist, fracDist, v, { callusRx: 14 });
-            drawBone(pathRadiusLower, lowerDist, RADIUS_X + kR * (fracDist + 12) + disp.x, lowerY + disp.y, disp.ang, xray, kR);
-
-            renderSupportDevice(s.support, supOp, xray);
-
-            // Wrist & hand
-            ctx.save();
-            ctx.translate(0, 10 + FOREARM_LEN + 14);
-
-            ctx.fillStyle = xray ? '#e2e8f0' : '#cbd5e1';
-            ctx.strokeStyle = boneStroke(xray);
-            ctx.lineWidth = xray ? 2 : 1.5;
-            ctx.beginPath();
-            // The hand is broadest when palm or back faces the viewer, and edge-on near neutral.
-            const handW = 22 + 14 * Math.abs(cosP);
-            ctx.roundRect(-handW / 2, 0, handW, 24, 8);
-            fillStroke();
-
-            // Thumb follows the radius: lateral when supinated, medial when pronated.
-            const flip = cosP >= 0 ? 1 : -1;
-            const thumbLen = 22 * (0.5 + 0.5 * Math.abs(cosP));
-            ctx.save();
-            ctx.translate(-18 * cosP, 12);
-            ctx.rotate(flip * (-0.5 - toRad(s.thumb)));
-            ctx.lineCap = 'round';
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(-thumbLen * flip, 12);
-            ctx.strokeStyle = boneStroke(xray);
-            ctx.lineWidth = 7;
-            ctx.stroke();
-            ctx.strokeStyle = boneFill(xray);
-            ctx.lineWidth = 5;
-            ctx.stroke();
-            ctx.restore();
-
-            FINGERS.forEach((name, idx) => {
-                // Slight fan keeps the fingers separable near neutral, where they would otherwise stack exactly.
-                const fx = (-12 + idx * 8) * cosP + (idx - 1.5) * 3.5 * (1 - Math.abs(cosP));
-                drawDigit(fx, 24, flip * toRad(s[name]), FINGER_LEN[name], 4.5, fingerColor(s[name], s), boneStroke(xray));
-            });
-
-            ctx.restore(); // wrist/hand
-            ctx.restore(); // forearm flex
-            ctx.restore(); // humerus
-        }
-
-        // ---------------------------------------------------------------
-        // Side (lateral) view
-        // ---------------------------------------------------------------
-        function renderSideView(v) {
-            const { s, disp, supOp } = v;
-            const xray = s.xray;
-            const fracDist = s.fractureY;
-            const lowerDist = FOREARM_LEN - fracDist;
-
-            ctx.translate(0, -60);
-
-            ctx.strokeStyle = xray ? '#475569' : '#64748b';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(0, -50, 24, 0, Math.PI * 2);
-            ctx.stroke();
-
-            ctx.save();
-            ctx.translate(0, -50);
-            ctx.rotate(-toRad(s.armLift));
-
-            drawHumerus(xray);
-            drawMuscle(-14, 60, 13, 44, 0, v);
-            renderUpperArmSupport(s.support, supOp, xray);
-
-            ctx.save();
-            ctx.translate(0, 125);
-            ctx.rotate(toRad(Math.max(0, Math.min(140, s.elbowFlex))));
-
-            setBoneStyle(xray);
-            ctx.beginPath();
-            ctx.roundRect(-12, -8, 24, 24, 6);
-            fillStroke();
-
-            // Radius and ulna overlap in a true lateral view, so they draw as one shaft.
-            ctx.save();
-            ctx.translate(0, 10);
-            setBoneStyle(xray);
-            ctx.beginPath();
-            ctx.roundRect(-8, 0, 16, fracDist, 4);
-            fillStroke();
-            ctx.restore();
-
-            drawUnion(0, fracDist, v, { strokeGap: true });
-
-            ctx.save();
-            ctx.translate(disp.x * 0.5, 10 + fracDist + 12 + disp.y);
-            setBoneStyle(xray);
-            ctx.beginPath();
-            ctx.roundRect(-9, 0, 18, lowerDist, 4);
-            fillStroke();
-            ctx.restore();
-
-            renderSupportDevice(s.support, supOp, xray);
-
-            // Wrist & hand
-            ctx.save();
-            ctx.translate(0, 10 + FOREARM_LEN + 14);
-            ctx.fillStyle = xray ? '#e2e8f0' : '#cbd5e1';
-            ctx.strokeStyle = boneStroke(xray);
-            ctx.lineWidth = xray ? 2 : 1.5;
-            ctx.beginPath();
-            // Thumb up (neutral) shows the hand's full width. Rotating either way turns it toward edge-on,
-            // stacking the thumb and fingers behind one another.
-            const cosT = Math.cos(toRad(s.rotation));
-            const handW = 12 + 12 * cosT;
-            ctx.roundRect(-handW / 2, 0, handW, 26, 6);
-            fillStroke();
-
-            drawDigit(10 * cosT, 8, -(0.5 + toRad(s.thumb)), 20, 5, boneFill(xray), boneStroke(xray));
-            FINGERS.forEach((name, idx) => {
-                drawDigit((1.5 - idx) * (4 * cosT + 1.5), 26, toRad(s[name]), FINGER_LEN[name], 4, fingerColor(s[name], s), boneStroke(xray));
-            });
-
-            ctx.restore(); // wrist/hand
-            ctx.restore(); // forearm flex
-            ctx.restore(); // humerus
-        }
-
-        // ---------------------------------------------------------------
-        // Support devices
-        // ---------------------------------------------------------------
-        function posteriorLongStyle(op, xray) {
-            ctx.fillStyle = xray ? `rgba(56, 189, 248, ${op * 0.45})` : `rgba(241, 245, 249, ${op * 0.85})`;
-            ctx.strokeStyle = `rgba(147, 197, 253, ${Math.max(op, 0.6)})`;
-            ctx.lineWidth = 3;
-        }
-
-        // Returns [y, w, h] for a device so drawing and the protection model share one span table.
-        function spanRect(type, w) {
-            const [y0, y1] = SUPPORTS[type].span;
-            return [y0, w, y1 - y0];
-        }
-
-        // Drawn in the humerus frame, before the elbow transform.
-        function renderUpperArmSupport(type, op, xray) {
-            if (op <= 0 || type !== 'posterior_long') return;
-            posteriorLongStyle(op, xray);
-            ctx.beginPath();
-            ctx.roundRect(-22, 35, 44, 95, 12);
-            fillStroke();
-        }
-
-        // Drawn in the forearm frame, after the elbow transform.
-        function renderSupportDevice(type, op, xray) {
-            if (op <= 0 || type === 'none') return;
-
-            if (type === 'posterior_long') {
-                // Forearm segment plus an elbow joint patch; the upper-arm segment is drawn separately.
-                posteriorLongStyle(op, xray);
-                ctx.beginPath();
-                ctx.roundRect(-22, ...spanRect('posterior_long', 44), 12);
-                fillStroke();
-                ctx.beginPath();
-                ctx.arc(0, 0, 20, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (type === 'sugar_tong') {
-                ctx.fillStyle = `rgba(168, 85, 247, ${op * 0.4})`;
-                ctx.strokeStyle = `rgba(192, 132, 252, ${Math.max(op, 0.5)})`;
-                ctx.lineWidth = 2.5;
-                ctx.beginPath();
-                ctx.roundRect(-28, ...spanRect('sugar_tong', 56), 12);
-                fillStroke();
-            } else if (type === 'volar_short') {
-                ctx.fillStyle = `rgba(245, 158, 11, ${op * 0.4})`;
-                ctx.strokeStyle = `rgba(252, 211, 77, ${Math.max(op, 0.5)})`;
-                ctx.lineWidth = 2.5;
-                ctx.beginPath();
-                ctx.roundRect(-24, ...spanRect('volar_short', 48), 10);
-                fillStroke();
-            } else if (type === 'ulnar_gutter') {
-                ctx.fillStyle = `rgba(239, 68, 68, ${op * 0.35})`;
-                ctx.strokeStyle = `rgba(252, 165, 165, ${Math.max(op, 0.5)})`;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.roundRect(-2, ...spanRect('ulnar_gutter', 26), 8);
-                fillStroke();
-            } else if (type === 'radial_gutter') {
-                ctx.fillStyle = `rgba(34, 197, 94, ${op * 0.35})`;
-                ctx.strokeStyle = `rgba(134, 239, 172, ${Math.max(op, 0.5)})`;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.roundRect(-24, ...spanRect('radial_gutter', 26), 8);
-                fillStroke();
-            } else if (type === 'thumb_spica') {
-                ctx.fillStyle = `rgba(236, 72, 153, ${op * 0.4})`;
-                ctx.strokeStyle = `rgba(244, 114, 182, ${Math.max(op, 0.5)})`;
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.roundRect(-28, ...spanRect('thumb_spica', 34), 10);
-                fillStroke();
-            } else if (type === 'sling') {
-                ctx.strokeStyle = `rgba(248, 250, 252, ${Math.max(op, 0.7)})`;
-                ctx.lineWidth = 8;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(-35, 45);
-                ctx.lineTo(-75, -75);
-                ctx.stroke();
-
-                ctx.fillStyle = xray ? `rgba(30, 41, 59, ${op * 0.85})` : `rgba(255, 255, 255, ${op * 0.45})`;
-                ctx.strokeStyle = `rgba(241, 245, 249, ${Math.max(op, 0.6)})`;
-                ctx.lineWidth = 2.5;
-                ctx.beginPath();
-                ctx.moveTo(-42, 40);
-                ctx.lineTo(42, 45);
-                ctx.lineTo(30, 195);
-                ctx.lineTo(-30, 195);
-                ctx.closePath();
-                fillStroke();
-            }
-        }
-
-        // ---------------------------------------------------------------
-        // Status panel + labels
-        // ---------------------------------------------------------------
-        function updateStatus(s, res) {
-            const t = s.timeline;
-            const sup = SUPPORTS[s.support];
-            const pct = Math.round(res.ratio * 100);
-            const reach = (sup.span && res.coverage < 1)
-                ? ` The ${sup.name} does not extend far enough above the fracture to carry the load.` : '';
-            let color, title, text;
-
-            if (s.support === 'none' && t < 35) {
-                color = '#ef4444';
-                title = 'CRITICAL: Unsupported Unstable Fracture';
-                text = res.ratio >= 0.6
-                    ? `No immobilization device active! Gravity loads the fracture at ${pct}% of what the day-${t} callus can carry, on top of muscle pull.`
-                    : 'No immobilization device active! Gravity load is low in this pose, but muscle pull can still displace the fragments.';
-            } else if (res.level === 'unsafe') {
-                color = '#ef4444';
-                if (res.cause === 'gravity') {
-                    title = 'CRITICAL: Gravity Overloads the Fracture';
-                    text = `Holding the forearm this way loads the fracture at ${pct}% of what the day-${t} callus can carry.${reach}`;
-                } else if (res.reason === 'rotation') {
-                    title = 'CRITICAL: Rotation Twists the Fracture';
-                    text = `The ${sup.name} does not control forearm rotation, so pronation/supination twists the fracture.`;
-                } else {
-                    title = 'CRITICAL: Unsafe Movement Under Support';
-                    text = `Applied movement exceeds the immobilization threshold of the ${sup.name}!`;
-                }
-            } else if (res.level === 'warning') {
-                color = '#f59e0b';
-                if (res.cause === 'gravity') {
-                    title = 'WARNING: High Gravity Load on Fracture';
-                    text = `Gravity loads the fracture at ${pct}% of what the day-${t} callus can carry.${reach}`;
-                } else if (res.reason === 'rotation') {
-                    title = 'WARNING: Rotational Stress on Fracture';
-                    text = sup.locksRotation
-                        ? `Forearm rotation is pushing against the ${sup.name}, which is meant to hold it still.`
-                        : `The ${sup.name} does not control forearm rotation, so pronation/supination twists the fracture.`;
-                } else {
-                    title = 'WARNING: Moderate Joint Stress Risk';
-                    text = `Movement is near the boundary of the ${sup.name}'s restriction profile.`;
-                }
-            } else if (t >= 56) {
-                color = '#10b981';
-                title = 'Bone Union Achieved (Healed)';
-                text = `Day ${t}+: Fracture remodeling complete. Solid bony bridging established across radius and ulna.`;
-            } else if (t >= 35) {
-                color = '#38bdf8';
-                title = 'Hard Callus Consolidation Phase';
-                text = `Day ${t}: Woven bone has bridged into lamellar bone union. Structure is fully continuous.`;
-            } else if (t >= 14) {
-                color = '#38bdf8';
-                title = 'Soft Callus Formation Phase';
-                text = `Day ${t}: Fibrous cartilage callus bridging the fracture gap. Avoid excessive torsional stress.`;
-            } else {
-                color = '#38bdf8';
-                title = `Protected & Stable in ${sup.name}`;
-                text = sup.note;
-            }
-
-            statusBox.style.borderLeftColor = color;
-            statusTitle.style.color = color;
-            statusTitle.textContent = title;
-            statusText.textContent = text;
-        }
-
-        function updateMeter(res) {
-            const pct = Math.round(res.ratio * 100);
-            loadFill.style.width = `${Math.min(res.ratio, 1.5) / 1.5 * 100}%`;
-            loadFill.style.backgroundColor = res.ratio >= 1 ? '#ef4444' : res.ratio >= 0.6 ? '#f59e0b' : '#38bdf8';
-            loadPct.textContent = `${pct}%`;
-            loadMeter.setAttribute('aria-valuenow', String(pct));
-        }
-
-        function updateLabels(s) {
-            for (const [key, el] of Object.entries(sliderEls)) {
-                el.out.textContent = (key === 'muscleOp' && s.xray) ? 'Fixed in X-ray mode' : el.def.fmt(s[key]);
-            }
-            // X-ray mode forces muscle opacity, so the slider has no effect there.
-            sliderEls.muscleOp.input.disabled = s.xray;
-        }
-
-        // ---------------------------------------------------------------
-        // Main draw
-        // ---------------------------------------------------------------
-        function drawScene() {
-            const s = readState();
-            updateLabels(s);
-
-            const res = evaluateSafety(s);
-            const v = {
-                s,
-                res,
-                level: res.level,
-                disp: displacement(res, s),
-                supOp: s.supportOp / 100,
-                musOp: s.xray ? 0.08 : s.muscleOp / 100
-            };
-
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            ctx.clearRect(0, 0, W, H);
-            canvas.style.backgroundColor = s.xray ? '#020617' : '#131c2e';
-
-            const cam = fitView(s);
-            ctx.save();
-            ctx.translate(W / 2, H / 2);
-            ctx.scale(cam.scale * s.zoom, cam.scale * s.zoom);
-            ctx.translate(-cam.cx, -(cam.cy - 60)); // the view code shifts everything up by 60 itself
-            if (s.view === 'front') renderFrontView(v);
-            else renderSideView(v);
-            ctx.restore();
-
-            updateStatus(s, res);
-            updateMeter(res);
-            canvas.setAttribute('aria-label',
-                `${s.view === 'front' ? 'Anterior' : 'Lateral'} view of a forearm fracture, ` +
-                `${SUPPORTS[s.support].name.toLowerCase()}, ${timelineLabel(s.timeline)}`);
-        }
-
-        function switchView(view) {
-            currentView = view;
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                const on = btn.dataset.view === view;
-                btn.classList.toggle('active', on);
-                btn.setAttribute('aria-selected', String(on));
-            });
-            drawScene();
-        }
-
-        // ---------------------------------------------------------------
-        // Wiring
-        // ---------------------------------------------------------------
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => switchView(btn.dataset.view));
+      // ---------------------------------------------------------------
+      // Setup
+      // ---------------------------------------------------------------
+      const W = 600,
+        H = 520;
+      const FOREARM_LEN = 135;
+      const canvas = document.getElementById("simCanvas");
+      const ctx = canvas.getContext("2d");
+      let dpr = 1;
+      let currentView = "front";
+
+      const renderModeSelect = document.getElementById("renderMode");
+      const supportTypeSelect = document.getElementById("supportType");
+      const statusBox = document.getElementById("statusBox");
+      const statusTitle = document.getElementById("statusTitle");
+      const statusText = document.getElementById("statusText");
+      const loadFill = document.getElementById("loadFill");
+      const loadPct = document.getElementById("loadPct");
+      const loadMeter = document.getElementById("loadMeter");
+
+      // locksRotation: true if the device crosses the elbow and holds pronation/supination still.
+      // protect: fraction of the bending load the device carries when it fully spans the fracture (illustrative values).
+      // span: where the device sits along the forearm, in px from the elbow (also used to draw it).
+      const SUPPORTS = {
+        posterior_long: {
+          name: "Posterior Long Arm Splint",
+          locksRotation: true,
+          protect: 0.97,
+          span: [-10, 180],
+          note: "Restricts elbow flexion/extension and forearm rotation to protect the fracture site.",
+        },
+        sugar_tong: {
+          name: "Sugar-Tong Splint",
+          locksRotation: true,
+          protect: 0.97,
+          span: [-15, 190],
+          note: "Wraps the forearm and elbow to limit flexion and forearm rotation.",
+        },
+        volar_short: {
+          name: "Volar Short Arm Splint",
+          locksRotation: false,
+          protect: 0.95,
+          span: [55, 180],
+          note: "Immobilizes the wrist and distal forearm. Forearm rotation stays free.",
+        },
+        ulnar_gutter: {
+          name: "Ulnar Gutter Splint",
+          locksRotation: false,
+          protect: 0.5,
+          span: [60, 180],
+          note: "Supports the ulnar side of the wrist and hand (ring and small fingers).",
+        },
+        radial_gutter: {
+          name: "Radial Gutter Splint",
+          locksRotation: false,
+          protect: 0.5,
+          span: [60, 180],
+          note: "Supports the radial side of the wrist and hand (thumb and index).",
+        },
+        thumb_spica: {
+          name: "Thumb Spica Splint",
+          locksRotation: false,
+          protect: 0.5,
+          span: [55, 180],
+          note: "Immobilizes the thumb and wrist.",
+        },
+        sling: {
+          name: "Arm Sling",
+          locksRotation: false,
+          protect: 0.95,
+          span: null,
+          note: "Supports the arm at rest. Avoid lifting the arm or loading the fingers.",
+        },
+        none: {
+          name: "No Support",
+          locksRotation: false,
+          protect: 0,
+          span: null,
+          note: "",
+        },
+      };
+
+      // ---------------------------------------------------------------
+      // Slider definitions: one config drives markup, labels and listeners
+      // ---------------------------------------------------------------
+      function timelineLabel(d) {
+        if (d === 0) return "Day 0 (Acute Fracture)";
+        if (d < 14) return `Day ${d} (Inflammation & Hematoma)`;
+        if (d < 35) return `Day ${d} (~Week ${Math.round(d / 7)} Soft Callus)`;
+        if (d < 56)
+          return `Day ${d} (~Week ${Math.round(d / 7)} Hard Bony Callus)`;
+        return `Day ${d}+ (Bone Remodeling / Healed)`;
+      }
+
+      // Forearm is 135 px long, so thirds split at 45 and 90.
+      function fractureLabel(y) {
+        return y < FOREARM_LEN / 3
+          ? "Proximal Third (1/3)"
+          : y < (FOREARM_LEN * 2) / 3
+            ? "Mid-Shaft (1/3)"
+            : "Distal Third (1/3)";
+      }
+
+      // Forearm rotation, measured from neutral (thumb up): negative = supination, positive = pronation.
+      const SUPINATION_MAX = 85,
+        PRONATION_MAX = 80;
+      function rotationLabel(v) {
+        if (v === 0) return "Neutral (thumb up)";
+        return v < 0 ? `${-v}° Supination` : `${v}° Pronation`;
+      }
+
+      const deg = (v) => `${v}°`;
+      const pct = (v) => `${v}%`;
+
+      const SLIDERS = {
+        globalSliders: [
+          {
+            key: "timeline",
+            label: "Healing Timeline (Day 0 to Weeks)",
+            min: 0,
+            max: 70,
+            step: 1,
+            value: 0,
+            fmt: timelineLabel,
+          },
+          {
+            key: "fractureY",
+            label: "Fracture Site (Radius/Ulna Level)",
+            min: 35,
+            max: 120,
+            step: 1,
+            value: 65,
+            fmt: fractureLabel,
+          },
+          {
+            key: "zoom",
+            label: "Zoom (relative to auto-fit)",
+            min: 0.6,
+            max: 1.6,
+            step: 0.05,
+            value: 1,
+            fmt: (v) => v.toFixed(2) + "x",
+          },
+          {
+            key: "armLift",
+            label: "Arm Elevation Angle",
+            min: -30,
+            max: 60,
+            step: 1,
+            value: 0,
+            fmt: deg,
+          },
+          {
+            key: "elbowFlex",
+            label: "Elbow Flexion Angle (0°–140°)",
+            min: 0,
+            max: 140,
+            step: 1,
+            value: 95,
+            fmt: deg,
+          },
+          {
+            key: "rotation",
+            label: "Forearm Rotation (Supination / Pronation)",
+            min: -SUPINATION_MAX,
+            max: PRONATION_MAX,
+            step: 1,
+            value: 0,
+            fmt: rotationLabel,
+          },
+          {
+            key: "supportOp",
+            label: "Support Transparency",
+            min: 0,
+            max: 100,
+            step: 1,
+            value: 85,
+            fmt: pct,
+          },
+          {
+            key: "muscleOp",
+            label: "Muscle Transparency",
+            min: 10,
+            max: 100,
+            step: 1,
+            value: 40,
+            fmt: pct,
+          },
+        ],
+        digitSliders: [
+          {
+            key: "thumb",
+            label: "Thumb Action",
+            min: 0,
+            max: 40,
+            step: 1,
+            value: 0,
+            fmt: deg,
+          },
+          {
+            key: "index",
+            label: "Index Finger Action",
+            min: -20,
+            max: 35,
+            step: 1,
+            value: 0,
+            fmt: deg,
+          },
+          {
+            key: "middle",
+            label: "Middle Finger Action",
+            min: -20,
+            max: 35,
+            step: 1,
+            value: 0,
+            fmt: deg,
+          },
+          {
+            key: "ring",
+            label: "Ring Finger Action",
+            min: -20,
+            max: 35,
+            step: 1,
+            value: 0,
+            fmt: deg,
+          },
+          {
+            key: "pinky",
+            label: "Pinky Finger Action",
+            min: -20,
+            max: 35,
+            step: 1,
+            value: 0,
+            fmt: deg,
+          },
+        ],
+      };
+
+      const sliderEls = {};
+      for (const [containerId, defs] of Object.entries(SLIDERS)) {
+        const box = document.getElementById(containerId);
+        defs.forEach((def) => {
+          const id = `slider-${def.key}`;
+          const group = document.createElement("div");
+          group.className = "control-group";
+          group.innerHTML =
+            `<div class="label-row"><label for="${id}">${def.label}</label><output for="${id}"></output></div>` +
+            `<input type="range" id="${id}" min="${def.min}" max="${def.max}" step="${def.step}" value="${def.value}">`;
+          box.appendChild(group);
+          sliderEls[def.key] = {
+            def,
+            input: group.querySelector("input"),
+            out: group.querySelector("output"),
+          };
         });
-        document.querySelectorAll('.controls select').forEach(el => el.addEventListener('change', drawScene));
-        document.querySelectorAll('.controls input[type="range"]').forEach(el => el.addEventListener('input', drawScene));
-        window.addEventListener('resize', () => {
-            const prev = dpr;
-            if ((window.devicePixelRatio || 1) !== prev) {
-                setupCanvas();
-                drawScene();
-            }
+      }
+
+      // ---------------------------------------------------------------
+      // State + shared safety logic (used by BOTH views)
+      // ---------------------------------------------------------------
+      function readState() {
+        const s = {
+          xray: renderModeSelect.value === "xray",
+          support: supportTypeSelect.value,
+          view: currentView,
+        };
+        for (const [key, el] of Object.entries(sliderEls))
+          s[key] = parseFloat(el.input.value);
+        return s;
+      }
+
+      // ---------------------------------------------------------------
+      // Gravity load model
+      // ---------------------------------------------------------------
+      // Bending moment at the fracture = weight of everything distal to it x its horizontal lever arm.
+      // Relative masses: forearm = 1, hand ~ 0.375 (roughly 0.6% vs 1.6% of body mass).
+      const HAND_MASS = 0.375;
+      const PROXIMAL_OVERLAP = 50; // px of splint needed above the fracture for it to carry full load
+
+      function distalMoment(fracY) {
+        const L = FOREARM_LEN - fracY; // distal forearm length
+        const forearm = (L / FOREARM_LEN) * (L / 2); // its mass share x lever to its centre
+        const hand = HAND_MASS * (L + 44); // hand centre sits ~44 px past the end of the shaft
+        return forearm + hand;
+      }
+      const REF_MOMENT = distalMoment(65); // mid-shaft fracture = 1.0
+
+      // Forearm angle from "hanging straight down", exactly as drawn (elbow flexion minus arm elevation).
+      function forearmAngle(s) {
+        return (
+          ((Math.max(0, Math.min(140, s.elbowFlex)) - s.armLift) * Math.PI) /
+          180
+        );
+      }
+
+      // What the healing bone can carry, in units of "mid-shaft, forearm held horizontal".
+      // Anchored to the app's own phases: hematoma (day 0), soft callus (14), hard callus (35), remodeled (56).
+      const CAPACITY_POINTS = [
+        [0, 0.1],
+        [14, 0.3],
+        [35, 1.25],
+        [56, 3.0],
+      ];
+      function healingCapacity(day) {
+        const pts = CAPACITY_POINTS;
+        if (day >= pts[pts.length - 1][0]) return pts[pts.length - 1][1];
+        for (let i = 1; i < pts.length; i++) {
+          if (day <= pts[i][0]) {
+            const [d0, c0] = pts[i - 1];
+            const [d1, c1] = pts[i];
+            return c0 + ((c1 - c0) * (day - d0)) / (d1 - d0);
+          }
+        }
+      }
+
+      // A device only protects if it actually reaches the fracture with enough lever above it.
+      function supportProtection(s) {
+        const sup = SUPPORTS[s.support];
+        let coverage = 1;
+        if (sup.span)
+          coverage = Math.max(
+            0,
+            Math.min(1, (10 + s.fractureY - sup.span[0]) / PROXIMAL_OVERLAP),
+          );
+        return { protect: sup.protect * coverage, coverage };
+      }
+
+      const RANK = { safe: 0, warning: 1, unsafe: 2 };
+
+      // Movement rules: does the pose defeat what the device is meant to restrict?
+      // Returns 'safe' | 'warning' | 'unsafe'
+      function movementRule(s) {
+        const t = s.timeline;
+        const total =
+          Math.abs(s.thumb) +
+          Math.abs(s.index) +
+          Math.abs(s.middle) +
+          Math.abs(s.ring) +
+          Math.abs(s.pinky);
+        const ulnar = Math.abs(s.ring) + Math.abs(s.pinky);
+        const radial = Math.abs(s.thumb) + Math.abs(s.index);
+
+        switch (s.support) {
+          case "none":
+            if (t < 35) return "unsafe";
+            break;
+          case "posterior_long":
+            if (t < 21 && (Math.abs(s.elbowFlex - 95) > 35 || total > 20))
+              return "warning";
+            break;
+          case "ulnar_gutter":
+            if (ulnar > 15 && t < 28) return "warning";
+            break;
+          case "radial_gutter":
+            if (radial > 15 && t < 28) return "warning";
+            break;
+          case "thumb_spica":
+            if (Math.abs(s.thumb) > 10 && t < 28) return "warning";
+            break;
+          case "sling":
+            if ((Math.abs(s.armLift) > 20 || total > 15) && t < 35)
+              return "unsafe";
+            break;
+        }
+        return "safe";
+      }
+
+      // Forearm rotation twists the fracture. Only devices that cross the elbow hold it still.
+      function rotationRule(s) {
+        const r = Math.abs(s.rotation);
+        const t = s.timeline;
+        if (s.support === "none" || t >= 28) return "safe"; // 'none' is already flagged by the movement rules
+        if (SUPPORTS[s.support].locksRotation)
+          return r > 20 ? "warning" : "safe";
+        return r > 60 ? "unsafe" : r > 30 ? "warning" : "safe";
+      }
+
+      function restriction(s) {
+        const move = movementRule(s);
+        const rot = rotationRule(s);
+        return RANK[rot] > RANK[move]
+          ? { level: rot, reason: "rotation" }
+          : { level: move, reason: "movement" };
+      }
+
+      // Two independent checks, worst one wins: gravity load vs. callus capacity, and device restriction rules.
+      // Used by BOTH views.
+      function evaluateSafety(s) {
+        const t = s.timeline;
+        const load =
+          (distalMoment(s.fractureY) / REF_MOMENT) *
+          Math.abs(Math.sin(forearmAngle(s)));
+        const { protect, coverage } = supportProtection(s);
+        const capacity = healingCapacity(t);
+        const ratio = (load * (1 - protect)) / capacity;
+
+        const gravityLevel =
+          ratio >= 1 ? "unsafe" : ratio >= 0.6 ? "warning" : "safe";
+        const rule = restriction(s);
+        const ruleLevel = rule.level;
+        const gravityWins = RANK[gravityLevel] >= RANK[ruleLevel];
+        const level = gravityWins ? gravityLevel : ruleLevel;
+        const cause =
+          level === "safe" ? "none" : gravityWins ? "gravity" : "restriction";
+
+        // Fragment displacement scales with severity; rule-based violations fade as the callus stiffens.
+        const fade = 1 - Math.min(1, t / 35);
+        const ruleSeverity =
+          (ruleLevel === "unsafe" ? 1.5 : ruleLevel === "warning" ? 0.63 : 0) *
+          fade;
+        const gravitySeverity = ratio >= 0.6 ? Math.min(1.5, ratio) : 0;
+
+        return {
+          level,
+          cause,
+          reason: rule.reason,
+          ratio,
+          load,
+          capacity,
+          protect,
+          coverage,
+          severity: Math.max(ruleSeverity, gravitySeverity),
+        };
+      }
+
+      // Fragments sag the way gravity pulls, expressed in the forearm's local frame.
+      function displacement(res, s) {
+        const dir = Math.sin(forearmAngle(s)) >= 0 ? 1 : -1;
+        return {
+          x: dir * 4 * res.severity,
+          y: 3 * res.severity,
+          ang: -dir * 0.04 * res.severity,
+        };
+      }
+
+      // ---------------------------------------------------------------
+      // Canvas setup (HiDPI aware)
+      // ---------------------------------------------------------------
+      function setupCanvas() {
+        dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(W * dpr);
+        canvas.height = Math.round(H * dpr);
+      }
+
+      // ---------------------------------------------------------------
+      // Drawing helpers
+      // ---------------------------------------------------------------
+      const boneFill = (xray) => (xray ? "#f8fafc" : "#f1f5f9");
+      const boneStroke = (xray) => (xray ? "#93c5fd" : "#94a3b8");
+
+      function setBoneStyle(xray) {
+        ctx.fillStyle = boneFill(xray);
+        ctx.strokeStyle = boneStroke(xray);
+        ctx.lineWidth = xray ? 2 : 1.5;
+      }
+
+      function fillStroke() {
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      function drawMuscle(cx, cy, rx, ry, rot, v) {
+        ctx.fillStyle = v.s.xray
+          ? `rgba(15, 23, 42, ${v.musOp})`
+          : `rgba(225, 29, 72, ${v.musOp})`;
+        ctx.strokeStyle = v.s.xray
+          ? `rgba(51, 65, 85, ${v.musOp})`
+          : `rgba(159, 18, 57, ${v.musOp})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy, rx, ry, rot, 0, Math.PI * 2);
+        fillStroke();
+      }
+
+      function drawHumerus(xray) {
+        setBoneStyle(xray);
+        ctx.beginPath();
+        ctx.moveTo(-10, 0);
+        ctx.bezierCurveTo(-22, 0, -25, 25, -12, 35);
+        ctx.bezierCurveTo(-16, 60, -14, 90, -17, 110);
+        ctx.bezierCurveTo(-24, 116, -22, 123, -14, 125);
+        ctx.lineTo(14, 125);
+        ctx.bezierCurveTo(22, 123, 24, 116, 17, 110);
+        ctx.bezierCurveTo(14, 90, 16, 60, 12, 35);
+        ctx.bezierCurveTo(25, 25, 22, 0, 10, 0);
+        ctx.closePath();
+        fillStroke();
+      }
+
+      // Bone outline paths (drawn mirrored so the radius sits on the thumb side)
+      function pathRadiusUpper(f) {
+        ctx.moveTo(-7, 0);
+        ctx.bezierCurveTo(-11, 0, -12, 10, -8, 15);
+        ctx.bezierCurveTo(-14, f * 0.5, -12, f, -9, f);
+        ctx.lineTo(7, f);
+        ctx.bezierCurveTo(9, f, 10, f * 0.5, 8, 15);
+        ctx.bezierCurveTo(12, 10, 10, 0, 7, 0);
+        ctx.closePath();
+      }
+
+      function pathRadiusLower(L) {
+        ctx.moveTo(-9, 0);
+        ctx.lineTo(9, 0);
+        ctx.bezierCurveTo(11, L * 0.6, 15, L - 10, 11, L);
+        ctx.lineTo(-9, L);
+        ctx.bezierCurveTo(-11, L - 10, -10, L * 0.6, -9, 0);
+        ctx.closePath();
+      }
+
+      function pathUlnaUpper(f) {
+        const mid = Math.max(f * 0.5, 32); // keep control point below the olecranon notch
+        ctx.moveTo(-8, 0);
+        ctx.bezierCurveTo(-14, 0, -15, 8, -10, 14);
+        ctx.bezierCurveTo(-6, 18, -6, 24, -10, 30);
+        ctx.bezierCurveTo(-12, mid, -11, f, -8, f);
+        ctx.lineTo(8, f);
+        ctx.bezierCurveTo(11, f, 12, mid, 8, 30);
+        ctx.bezierCurveTo(4, 24, 4, 18, 8, 14);
+        ctx.bezierCurveTo(12, 8, 10, 0, -8, 0);
+        ctx.closePath();
+      }
+
+      function pathUlnaLower(L) {
+        ctx.moveTo(-8, 0);
+        ctx.lineTo(8, 0);
+        ctx.bezierCurveTo(9, L * 0.7, 8, L - 8, 6, L);
+        ctx.lineTo(-6, L);
+        ctx.bezierCurveTo(-8, L - 8, -9, L * 0.7, -8, 0);
+        ctx.closePath();
+      }
+
+      function drawBone(pathFn, arg, x, y, rot, xray, shear = 0) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(rot);
+        ctx.transform(1, 0, shear, 1, 0, 0); // slant the shaft: x shifts by shear * y
+        ctx.scale(-1, 1);
+        setBoneStyle(xray);
+        ctx.beginPath();
+        pathFn(arg);
+        fillStroke();
+        ctx.restore();
+      }
+
+      function fractureGapColor(s, level) {
+        if (s.xray) {
+          return s.timeline < 14
+            ? "rgba(255, 255, 255, 0.9)"
+            : s.timeline < 35
+              ? "rgba(147, 197, 253, 0.8)"
+              : "rgba(248, 250, 252, 1.0)";
+        }
+        return level === "unsafe"
+          ? "rgba(239, 68, 68, 0.8)"
+          : level === "warning"
+            ? "rgba(245, 158, 11, 0.7)"
+            : "rgba(56, 189, 248, 0.5)";
+      }
+
+      // Gap (acute) -> soft callus (day 14+) -> solid union (day 35+)
+      function drawUnion(cx, fracDist, v, opts = {}) {
+        const { s, level } = v;
+        const y = 10 + fracDist;
+        if (s.timeline >= 35) {
+          setBoneStyle(s.xray);
+          ctx.beginPath();
+          ctx.roundRect(cx - 9, y - 2, 18, 14, 4);
+          fillStroke();
+        } else if (s.timeline >= 14) {
+          ctx.fillStyle = s.xray
+            ? "rgba(147, 197, 253, 0.75)"
+            : "rgba(217, 119, 6, 0.75)";
+          ctx.beginPath();
+          ctx.ellipse(cx, y + 5, opts.callusRx || 13, 9, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillStyle = fractureGapColor(s, level);
+          ctx.beginPath();
+          ctx.roundRect(cx - 8, y, 16, 12, 3);
+          ctx.fill();
+          if (opts.strokeGap) {
+            setBoneStyle(s.xray);
+            ctx.stroke();
+          }
+        }
+      }
+
+      function fingerColor(val, s) {
+        return Math.abs(val) > 10 && s.timeline < 35
+          ? "#ef4444"
+          : boneFill(s.xray);
+      }
+
+      // The outline keeps overlapping fingers readable when the hand is edge-on.
+      function drawDigit(x, y, angleRad, len, width, color, outline) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angleRad);
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, len);
+        if (outline) {
+          ctx.strokeStyle = outline;
+          ctx.lineWidth = width + 2;
+          ctx.stroke();
+        }
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const toRad = (d) => (d * Math.PI) / 180;
+
+      // cos of the rotation measured from full supination: 1 supinated, ~0 neutral, -1 fully pronated.
+      const pronationCos = (s) => Math.cos(toRad(s.rotation + SUPINATION_MAX));
+
+      // Frames the arm: works out where the shoulder, elbow and fingertips land for this pose and
+      // scales/centres the view so a flexed arm and a hanging arm both fill the canvas.
+      // Coordinates match the view code (shoulder at (-30,-50) front, (0,-50) side).
+      function fitView(s) {
+        const front = s.view === "front";
+        const a = toRad(s.armLift);
+        const phi = toRad(Math.max(0, Math.min(140, s.elbowFlex)) - s.armLift);
+        const S = { x: front ? -30 : 0, y: -50 };
+        const E = { x: S.x + 125 * Math.sin(a), y: S.y + 125 * Math.cos(a) };
+        const T = {
+          x: E.x - 217 * Math.sin(phi),
+          y: E.y + 217 * Math.cos(phi),
+        }; // fingertip
+        const pts = front
+          ? [S, E, T, { x: -100, y: -82 }, { x: 2, y: -29 }] // clavicle and deltoid
+          : [S, E, T, { x: -26, y: -76 }, { x: 26, y: -26 }]; // shoulder ring
+        const xs = pts.map((p) => p.x),
+          ys = pts.map((p) => p.y);
+        const [x0, x1, y0, y1] = [
+          Math.min(...xs),
+          Math.max(...xs),
+          Math.min(...ys),
+          Math.max(...ys),
+        ];
+        const PAD = 34; // room for splints and the sling strap
+        const scale = Math.max(
+          0.7,
+          Math.min(1.7, W / (x1 - x0 + 2 * PAD), H / (y1 - y0 + 2 * PAD)),
+        );
+        return { scale, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+      }
+      const FINGERS = ["index", "middle", "ring", "pinky"];
+      const FINGER_LEN = { index: 33, middle: 37, ring: 34, pinky: 28 };
+
+      // ---------------------------------------------------------------
+      // Front (anterior) view
+      // ---------------------------------------------------------------
+      function renderFrontView(v) {
+        const { s, level, disp, supOp } = v;
+        const xray = s.xray;
+        const fracDist = s.fractureY;
+        const lowerDist = FOREARM_LEN - fracDist;
+
+        ctx.translate(0, -60);
+
+        // Torso & clavicle
+        ctx.strokeStyle = xray ? "#1e293b" : "#334155";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(-110, -70);
+        ctx.lineTo(-140, 160);
+        ctx.moveTo(110, -70);
+        ctx.lineTo(140, 160);
+        ctx.stroke();
+
+        setBoneStyle(xray);
+        ctx.beginPath();
+        ctx.roundRect(-100, -80, 90, 14, 6);
+        fillStroke();
+
+        // Deltoid
+        drawMuscle(-30, -55, 32, 26, 0.2, v);
+
+        // Humerus
+        ctx.save();
+        ctx.translate(-30, -50);
+        ctx.rotate(-toRad(s.armLift));
+        drawHumerus(xray);
+        drawMuscle(-2, 50, 14, 40, 0, v); // biceps / brachialis
+        renderUpperArmSupport(s.support, supOp, xray);
+
+        // Elbow & forearm
+        ctx.save();
+        ctx.translate(0, 125);
+        ctx.rotate(toRad(Math.max(0, Math.min(140, s.elbowFlex))));
+
+        setBoneStyle(xray);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 18, 12, 0, 0, Math.PI * 2); // epicondyles
+        fillStroke();
+
+        drawMuscle(0, 65, 20, 55, 0, v); // forearm muscle group
+
+        // Anterior view of the right arm. Fully supinated: radius lateral (thumb side, viewer's left), ulna medial.
+        // As the forearm pronates the distal ends swap sides, so the bones cross (cosP: 1 -> 0 -> -1).
+        const cosP = pronationCos(s);
+        const RADIUS_X = -14,
+          ULNA_X = 14;
+        const kR = (14 * (1 - cosP)) / FOREARM_LEN; // radius drifts medially toward the wrist
+        const kU = (-14 * (1 - cosP)) / FOREARM_LEN; // ulna drifts laterally toward the wrist
+        const lowerY = 10 + fracDist + 12;
+
+        drawBone(pathUlnaUpper, fracDist, ULNA_X, 10, 0, xray, kU);
+        drawUnion(ULNA_X + kU * fracDist, fracDist, v);
+        drawBone(
+          pathUlnaLower,
+          lowerDist,
+          ULNA_X + kU * (fracDist + 12) + disp.x * 0.9,
+          lowerY + disp.y * 0.95,
+          disp.ang * 0.85,
+          xray,
+          kU,
+        );
+
+        // Radius is anterior to the ulna when crossed, so it draws on top.
+        drawBone(pathRadiusUpper, fracDist, RADIUS_X, 10, 0, xray, kR);
+        drawUnion(RADIUS_X + kR * fracDist, fracDist, v, { callusRx: 14 });
+        drawBone(
+          pathRadiusLower,
+          lowerDist,
+          RADIUS_X + kR * (fracDist + 12) + disp.x,
+          lowerY + disp.y,
+          disp.ang,
+          xray,
+          kR,
+        );
+
+        renderSupportDevice(s.support, supOp, xray);
+
+        // Wrist & hand
+        ctx.save();
+        ctx.translate(0, 10 + FOREARM_LEN + 14);
+
+        ctx.fillStyle = xray ? "#e2e8f0" : "#cbd5e1";
+        ctx.strokeStyle = boneStroke(xray);
+        ctx.lineWidth = xray ? 2 : 1.5;
+        ctx.beginPath();
+        // The hand is broadest when palm or back faces the viewer, and edge-on near neutral.
+        const handW = 22 + 14 * Math.abs(cosP);
+        ctx.roundRect(-handW / 2, 0, handW, 24, 8);
+        fillStroke();
+
+        // Thumb follows the radius: lateral when supinated, medial when pronated.
+        const flip = cosP >= 0 ? 1 : -1;
+        const thumbLen = 22 * (0.5 + 0.5 * Math.abs(cosP));
+        ctx.save();
+        ctx.translate(-18 * cosP, 12);
+        ctx.rotate(flip * (-0.5 - toRad(s.thumb)));
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-thumbLen * flip, 12);
+        ctx.strokeStyle = boneStroke(xray);
+        ctx.lineWidth = 7;
+        ctx.stroke();
+        ctx.strokeStyle = boneFill(xray);
+        ctx.lineWidth = 5;
+        ctx.stroke();
+        ctx.restore();
+
+        FINGERS.forEach((name, idx) => {
+          // Slight fan keeps the fingers separable near neutral, where they would otherwise stack exactly.
+          const fx =
+            (-12 + idx * 8) * cosP + (idx - 1.5) * 3.5 * (1 - Math.abs(cosP));
+          drawDigit(
+            fx,
+            24,
+            flip * toRad(s[name]),
+            FINGER_LEN[name],
+            4.5,
+            fingerColor(s[name], s),
+            boneStroke(xray),
+          );
         });
 
-        setupCanvas();
+        ctx.restore(); // wrist/hand
+        ctx.restore(); // forearm flex
+        ctx.restore(); // humerus
+      }
+
+      // ---------------------------------------------------------------
+      // Side (lateral) view
+      // ---------------------------------------------------------------
+      function renderSideView(v) {
+        const { s, disp, supOp } = v;
+        const xray = s.xray;
+        const fracDist = s.fractureY;
+        const lowerDist = FOREARM_LEN - fracDist;
+
+        ctx.translate(0, -60);
+
+        ctx.strokeStyle = xray ? "#475569" : "#64748b";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, -50, 24, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.save();
+        ctx.translate(0, -50);
+        ctx.rotate(-toRad(s.armLift));
+
+        drawHumerus(xray);
+        drawMuscle(-14, 60, 13, 44, 0, v);
+        renderUpperArmSupport(s.support, supOp, xray);
+
+        ctx.save();
+        ctx.translate(0, 125);
+        ctx.rotate(toRad(Math.max(0, Math.min(140, s.elbowFlex))));
+
+        setBoneStyle(xray);
+        ctx.beginPath();
+        ctx.roundRect(-12, -8, 24, 24, 6);
+        fillStroke();
+
+        // Radius and ulna overlap in a true lateral view, so they draw as one shaft.
+        ctx.save();
+        ctx.translate(0, 10);
+        setBoneStyle(xray);
+        ctx.beginPath();
+        ctx.roundRect(-8, 0, 16, fracDist, 4);
+        fillStroke();
+        ctx.restore();
+
+        drawUnion(0, fracDist, v, { strokeGap: true });
+
+        ctx.save();
+        ctx.translate(disp.x * 0.5, 10 + fracDist + 12 + disp.y);
+        setBoneStyle(xray);
+        ctx.beginPath();
+        ctx.roundRect(-9, 0, 18, lowerDist, 4);
+        fillStroke();
+        ctx.restore();
+
+        renderSupportDevice(s.support, supOp, xray);
+
+        // Wrist & hand
+        ctx.save();
+        ctx.translate(0, 10 + FOREARM_LEN + 14);
+        ctx.fillStyle = xray ? "#e2e8f0" : "#cbd5e1";
+        ctx.strokeStyle = boneStroke(xray);
+        ctx.lineWidth = xray ? 2 : 1.5;
+        ctx.beginPath();
+        // Thumb up (neutral) shows the hand's full width. Rotating either way turns it toward edge-on,
+        // stacking the thumb and fingers behind one another.
+        const cosT = Math.cos(toRad(s.rotation));
+        const handW = 12 + 12 * cosT;
+        ctx.roundRect(-handW / 2, 0, handW, 26, 6);
+        fillStroke();
+
+        drawDigit(
+          10 * cosT,
+          8,
+          -(0.5 + toRad(s.thumb)),
+          20,
+          5,
+          boneFill(xray),
+          boneStroke(xray),
+        );
+        FINGERS.forEach((name, idx) => {
+          drawDigit(
+            (1.5 - idx) * (4 * cosT + 1.5),
+            26,
+            toRad(s[name]),
+            FINGER_LEN[name],
+            4,
+            fingerColor(s[name], s),
+            boneStroke(xray),
+          );
+        });
+
+        ctx.restore(); // wrist/hand
+        ctx.restore(); // forearm flex
+        ctx.restore(); // humerus
+      }
+
+      // ---------------------------------------------------------------
+      // Support devices
+      // ---------------------------------------------------------------
+      function posteriorLongStyle(op, xray) {
+        ctx.fillStyle = xray
+          ? `rgba(56, 189, 248, ${op * 0.45})`
+          : `rgba(241, 245, 249, ${op * 0.85})`;
+        ctx.strokeStyle = `rgba(147, 197, 253, ${Math.max(op, 0.6)})`;
+        ctx.lineWidth = 3;
+      }
+
+      // Returns [y, w, h] for a device so drawing and the protection model share one span table.
+      function spanRect(type, w) {
+        const [y0, y1] = SUPPORTS[type].span;
+        return [y0, w, y1 - y0];
+      }
+
+      // Drawn in the humerus frame, before the elbow transform.
+      function renderUpperArmSupport(type, op, xray) {
+        if (op <= 0 || type !== "posterior_long") return;
+        posteriorLongStyle(op, xray);
+        ctx.beginPath();
+        ctx.roundRect(-22, 35, 44, 95, 12);
+        fillStroke();
+      }
+
+      // Drawn in the forearm frame, after the elbow transform.
+      function renderSupportDevice(type, op, xray) {
+        if (op <= 0 || type === "none") return;
+
+        if (type === "posterior_long") {
+          // Forearm segment plus an elbow joint patch; the upper-arm segment is drawn separately.
+          posteriorLongStyle(op, xray);
+          ctx.beginPath();
+          ctx.roundRect(-22, ...spanRect("posterior_long", 44), 12);
+          fillStroke();
+          ctx.beginPath();
+          ctx.arc(0, 0, 20, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (type === "sugar_tong") {
+          ctx.fillStyle = `rgba(168, 85, 247, ${op * 0.4})`;
+          ctx.strokeStyle = `rgba(192, 132, 252, ${Math.max(op, 0.5)})`;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.roundRect(-28, ...spanRect("sugar_tong", 56), 12);
+          fillStroke();
+        } else if (type === "volar_short") {
+          ctx.fillStyle = `rgba(245, 158, 11, ${op * 0.4})`;
+          ctx.strokeStyle = `rgba(252, 211, 77, ${Math.max(op, 0.5)})`;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.roundRect(-24, ...spanRect("volar_short", 48), 10);
+          fillStroke();
+        } else if (type === "ulnar_gutter") {
+          ctx.fillStyle = `rgba(239, 68, 68, ${op * 0.35})`;
+          ctx.strokeStyle = `rgba(252, 165, 165, ${Math.max(op, 0.5)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(-2, ...spanRect("ulnar_gutter", 26), 8);
+          fillStroke();
+        } else if (type === "radial_gutter") {
+          ctx.fillStyle = `rgba(34, 197, 94, ${op * 0.35})`;
+          ctx.strokeStyle = `rgba(134, 239, 172, ${Math.max(op, 0.5)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(-24, ...spanRect("radial_gutter", 26), 8);
+          fillStroke();
+        } else if (type === "thumb_spica") {
+          ctx.fillStyle = `rgba(236, 72, 153, ${op * 0.4})`;
+          ctx.strokeStyle = `rgba(244, 114, 182, ${Math.max(op, 0.5)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(-28, ...spanRect("thumb_spica", 34), 10);
+          fillStroke();
+        } else if (type === "sling") {
+          ctx.strokeStyle = `rgba(248, 250, 252, ${Math.max(op, 0.7)})`;
+          ctx.lineWidth = 8;
+          ctx.lineCap = "round";
+          ctx.beginPath();
+          ctx.moveTo(-35, 45);
+          ctx.lineTo(-75, -75);
+          ctx.stroke();
+
+          ctx.fillStyle = xray
+            ? `rgba(30, 41, 59, ${op * 0.85})`
+            : `rgba(255, 255, 255, ${op * 0.45})`;
+          ctx.strokeStyle = `rgba(241, 245, 249, ${Math.max(op, 0.6)})`;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(-42, 40);
+          ctx.lineTo(42, 45);
+          ctx.lineTo(30, 195);
+          ctx.lineTo(-30, 195);
+          ctx.closePath();
+          fillStroke();
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // Status panel + labels
+      // ---------------------------------------------------------------
+      function updateStatus(s, res) {
+        const t = s.timeline;
+        const sup = SUPPORTS[s.support];
+        const pct = Math.round(res.ratio * 100);
+        const reach =
+          sup.span && res.coverage < 1
+            ? ` The ${sup.name} does not extend far enough above the fracture to carry the load.`
+            : "";
+        let color, title, text;
+
+        if (s.support === "none" && t < 35) {
+          color = "#ef4444";
+          title = "CRITICAL: Unsupported Unstable Fracture";
+          text =
+            res.ratio >= 0.6
+              ? `No immobilization device active! Gravity loads the fracture at ${pct}% of what the day-${t} callus can carry, on top of muscle pull.`
+              : "No immobilization device active! Gravity load is low in this pose, but muscle pull can still displace the fragments.";
+        } else if (res.level === "unsafe") {
+          color = "#ef4444";
+          if (res.cause === "gravity") {
+            title = "CRITICAL: Gravity Overloads the Fracture";
+            text = `Holding the forearm this way loads the fracture at ${pct}% of what the day-${t} callus can carry.${reach}`;
+          } else if (res.reason === "rotation") {
+            title = "CRITICAL: Rotation Twists the Fracture";
+            text = `The ${sup.name} does not control forearm rotation, so pronation/supination twists the fracture.`;
+          } else {
+            title = "CRITICAL: Unsafe Movement Under Support";
+            text = `Applied movement exceeds the immobilization threshold of the ${sup.name}!`;
+          }
+        } else if (res.level === "warning") {
+          color = "#f59e0b";
+          if (res.cause === "gravity") {
+            title = "WARNING: High Gravity Load on Fracture";
+            text = `Gravity loads the fracture at ${pct}% of what the day-${t} callus can carry.${reach}`;
+          } else if (res.reason === "rotation") {
+            title = "WARNING: Rotational Stress on Fracture";
+            text = sup.locksRotation
+              ? `Forearm rotation is pushing against the ${sup.name}, which is meant to hold it still.`
+              : `The ${sup.name} does not control forearm rotation, so pronation/supination twists the fracture.`;
+          } else {
+            title = "WARNING: Moderate Joint Stress Risk";
+            text = `Movement is near the boundary of the ${sup.name}'s restriction profile.`;
+          }
+        } else if (t >= 56) {
+          color = "#10b981";
+          title = "Bone Union Achieved (Healed)";
+          text = `Day ${t}+: Fracture remodeling complete. Solid bony bridging established across radius and ulna.`;
+        } else if (t >= 35) {
+          color = "#38bdf8";
+          title = "Hard Callus Consolidation Phase";
+          text = `Day ${t}: Woven bone has bridged into lamellar bone union. Structure is fully continuous.`;
+        } else if (t >= 14) {
+          color = "#38bdf8";
+          title = "Soft Callus Formation Phase";
+          text = `Day ${t}: Fibrous cartilage callus bridging the fracture gap. Avoid excessive torsional stress.`;
+        } else {
+          color = "#38bdf8";
+          title = `Protected & Stable in ${sup.name}`;
+          text = sup.note;
+        }
+
+        statusBox.style.borderLeftColor = color;
+        statusTitle.style.color = color;
+        statusTitle.textContent = title;
+        statusText.textContent = text;
+      }
+
+      function updateMeter(res) {
+        const pct = Math.round(res.ratio * 100);
+        loadFill.style.width = `${(Math.min(res.ratio, 1.5) / 1.5) * 100}%`;
+        loadFill.style.backgroundColor =
+          res.ratio >= 1 ? "#ef4444" : res.ratio >= 0.6 ? "#f59e0b" : "#38bdf8";
+        loadPct.textContent = `${pct}%`;
+        loadMeter.setAttribute("aria-valuenow", String(pct));
+      }
+
+      function updateLabels(s) {
+        for (const [key, el] of Object.entries(sliderEls)) {
+          el.out.textContent =
+            key === "muscleOp" && s.xray
+              ? "Fixed in X-ray mode"
+              : el.def.fmt(s[key]);
+        }
+        // X-ray mode forces muscle opacity, so the slider has no effect there.
+        sliderEls.muscleOp.input.disabled = s.xray;
+      }
+
+      // ---------------------------------------------------------------
+      // Main draw
+      // ---------------------------------------------------------------
+      function drawScene() {
+        const s = readState();
+        updateLabels(s);
+
+        const res = evaluateSafety(s);
+        const v = {
+          s,
+          res,
+          level: res.level,
+          disp: displacement(res, s),
+          supOp: s.supportOp / 100,
+          musOp: s.xray ? 0.08 : s.muscleOp / 100,
+        };
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, W, H);
+        canvas.style.backgroundColor = s.xray ? "#020617" : "#131c2e";
+
+        const cam = fitView(s);
+        ctx.save();
+        ctx.translate(W / 2, H / 2);
+        ctx.scale(cam.scale * s.zoom, cam.scale * s.zoom);
+        ctx.translate(-cam.cx, -(cam.cy - 60)); // the view code shifts everything up by 60 itself
+        if (s.view === "front") renderFrontView(v);
+        else renderSideView(v);
+        ctx.restore();
+
+        updateStatus(s, res);
+        updateMeter(res);
+        canvas.setAttribute(
+          "aria-label",
+          `${s.view === "front" ? "Anterior" : "Lateral"} view of a forearm fracture, ` +
+            `${SUPPORTS[s.support].name.toLowerCase()}, ${timelineLabel(s.timeline)}`,
+        );
+      }
+
+      function switchView(view) {
+        currentView = view;
+        document.querySelectorAll(".tab-btn").forEach((btn) => {
+          const on = btn.dataset.view === view;
+          btn.classList.toggle("active", on);
+          btn.setAttribute("aria-selected", String(on));
+        });
         drawScene();
+      }
+
+      // ---------------------------------------------------------------
+      // Wiring
+      // ---------------------------------------------------------------
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        btn.addEventListener("click", () => switchView(btn.dataset.view));
+      });
+      document
+        .querySelectorAll(".controls select")
+        .forEach((el) => el.addEventListener("change", drawScene));
+      document
+        .querySelectorAll('.controls input[type="range"]')
+        .forEach((el) => el.addEventListener("input", drawScene));
+      window.addEventListener("resize", () => {
+        const prev = dpr;
+        if ((window.devicePixelRatio || 1) !== prev) {
+          setupCanvas();
+          drawScene();
+        }
+      });
+
+      setupCanvas();
+      drawScene();
     </script>
-</body>
+  </body>
 </html>
